@@ -19,11 +19,21 @@ import Gradient         from './Gradient';
 import Cycle            from './Cycle';
 import Colour           from './Colour';
 
-export default {
+import type { 
+    TVec2, TVec3, TVec4, TVec8,
+    TVec3Struct, TVec4Struct,
+    TMat3, TMat4, 
+}                       from './global';
+
+export {
     Maths,
     quat, vec3,
     Vec2, Vec3, Vec4, Vec3Buf, Quat, DualQuat,
     Mat3, Mat4,
     Transform, Transform2D,
     Gradient, Colour, Cycle,
+
+    TVec2, TVec3, TVec4, TVec8,
+    TVec3Struct, TVec4Struct,
+    TMat3, TMat4, 
 };
