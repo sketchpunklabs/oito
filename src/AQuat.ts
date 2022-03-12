@@ -603,7 +603,7 @@ export default class AQuat{
     }
 
     /** PreMultiple an Axis Angle to this quaternions */
-    pmulAxisAngle( q: TVec4, axis: TVec3, angle: number, out ?: TVec4 ) : TVec4{
+    static pmulAxisAngle( q: TVec4, axis: TVec3, angle: number, out ?: TVec4 ) : TVec4{
         const half = angle * .5,
               s    = Math.sin( half ),
               ax   = axis[0] * s,	// A Quat based on Axis Angle
@@ -626,7 +626,7 @@ export default class AQuat{
     }
 
     /** Inverts the quaternion passed in, then pre multiplies to this quaternion. */
-    pmulInvert( q: TVec4, inv: TVec4, out ?: TVec4 ) : TVec4{
+    static pmulInvert( q: TVec4, inv: TVec4, out ?: TVec4 ) : TVec4{
         //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         // .invert()
         let ax = inv[ 0 ],	
@@ -662,7 +662,7 @@ export default class AQuat{
     }
 
     /** Apply Unit Vector Rotation to Quaternion */
-    mulUnitVecs( q: TVec4, a: TVec3, b: TVec3, out ?: TVec4 ) : TVec4{
+    static mulUnitVecs( q: TVec4, a: TVec3, b: TVec3, out ?: TVec4 ) : TVec4{
         // fromUnitVecs
         const dot = Vec3.dot( a, b );
         const ax  = q[0],		// A of mul

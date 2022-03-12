@@ -52,6 +52,7 @@ export default class Maths{
         a += x * 1748431.0       / 4469590125000.0;          x *= x1; 
         a += x * 4058681.0       / 92100645000000.0;         x *= x1;
         a += x * 5313239803.0    / 1046241656460000000.0;    x *= x1;
+        // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
         a += x * 2601229460539.0 / 4365681093774000000000.0; // x^10
         return Math.sqrt( a );
     }
@@ -76,6 +77,10 @@ export default class Maths{
     // #region INTERPOLATION
 
     static lerp( a: number, b: number, t: number ) : number{ return (1 - t) * a + t * b; }  //return a + t * (b-a); 
+
+    // @FreyaHolmer : exponential interpolation, if you want to find the frequency, 
+    // zoom level or scale, halfway between 2 and 8, then the right answer is 4, not 5
+    static eerp( a:number, b:number, t: number ): number{ return a**(1-t) * b**t; }
 
     /** CLerp - Circular Lerp - is like lerp but handles the wraparound from 0 to 360.
     This is useful when interpolating eulerAngles and the object crosses the 0/360 boundary. */

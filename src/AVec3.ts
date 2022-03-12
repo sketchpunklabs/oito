@@ -175,8 +175,10 @@ class AVec3{
     }
 
     /** Pust vector components onto an array, useful when building geometery */
-    static pushTo( a: TVec3, ary: Array<number> ) : void {
+    static pushTo( a: TVec3, ary: Array<number> ) : number {
+        const idx = ary.length;
         ary.push( a[ 0 ], a[ 1 ], a[ 2 ] );
+        return idx;
     }
 
     /** Create an Iterator Object that allows an easy way to loop a Float32Buffer
@@ -648,6 +650,15 @@ class AVec3{
     b = Cross( a, v );
     */
     static orthogonal( a: TVec3, out ?: TVec3 ) : TVec3{
+        /*
+        TODO: Found GLSL Code that might be better.
+        vec3 orthogonal(vec3 v) {
+            return normalize(abs(v.x) > abs(v.z) ? vec3(-v.y, v.x, 0.0)
+                                        : vec3(0.0, -v.z, v.y));
+        }
+        vec3 tangent    = orthogonal(normal);
+        vec3 bitangent  = normalize(cross(normal, tangent));
+        */
         const x = a[0], y = a[1], z = a[2];
         out = out || a;
         if( x >= 0.57735026919 ){
@@ -659,6 +670,7 @@ class AVec3{
             out[ 1 ] =  z;
             out[ 2 ] = -y;
         }
+
         return out;
     }
 

@@ -1,0 +1,14 @@
+// A long tail ease out function. Input range, 0-1. 
+float QuarticEaseOut(const float& Input){ return (FMath::Pow(Input-1.0f, 4.0f) * -1.0f) + 1.0f; };
+desmos y\ =\ \left(x-1\right)^{4}\ \cdot\ -1\ +\ 1
+in range between 0-2 is makes a nice squarish curve
+
+// A C2 continuous ease out function. Input range, 0-1
+float CircularEaseOut(const float& Input){ return FMath::Sqrt(1.0f - FMath::Pow(Input - 1.0f, 2.0f)); };
+demos y\ =\ \sqrt{1-\left(x-1\right)^{2}}  If going between 0 and 2, get a nice half circle
+
+// An ease out function. Input range, 0-1.
+float SquaredEaseOut(const float& Input){ return (FMath::Pow(Input-1.0f, 2.0f) * -1.0f) + 1.0f; };
+
+y\ =\ \left(\left(x-1\right)^{2}\ \ \cdot\ \left(-1\right)\right)+\ 1
+Not really square
