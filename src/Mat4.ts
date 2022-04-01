@@ -46,6 +46,12 @@ class Mat4 extends Float32Array{
         return this;
     }
 
+    copyTo( out: TMat4 ): this{
+        let i;
+        for(i=0; i < 16; i++) out[ i ] = this[ i ];
+        return this;
+    }
+
     determinant() : number {
         const 
             a00 = this[0],

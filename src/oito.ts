@@ -1,5 +1,6 @@
 import {default as quat}  from './AQuat';
 import {default as vec3}  from './AVec3';
+import {default as mat4}  from './AMat4';
 
 import Vec2             from './Vec2';
 import Vec3             from './Vec3';
@@ -27,7 +28,7 @@ import type {
 
 export {
     Maths,
-    quat, vec3,
+    quat, vec3, mat4,
     Vec2, Vec3, Vec4, Vec3Buf, Quat, DualQuat,
     Mat3, Mat4,
     Transform, Transform2D,

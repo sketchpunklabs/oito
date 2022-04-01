@@ -13,7 +13,7 @@ class Cycle{
     // #endregion
 
     // #region METHODS
-    setSeconds( s:number ) : Cycle{ this._cycleInc = Maths.PI_2 / ( s * 1000 ); return this; }
+    setSeconds( s:number ) : Cycle{ this._cycleInc = Maths.TAU / ( s * 1000 ); return this; }
 
     /** Change Cycle to Update in a negative direction */
     backwards() : Cycle{ if( this._speedScale > 0 ) this._speedScale *= -1; return this; }
@@ -23,7 +23,7 @@ class Cycle{
 
     /** Update the cycle using a Delta Time value, fractions of a second usually */
     update( dt: number ) : Cycle{
-        this._value = ( this._value + ( dt * 1000 * this._speedScale ) * this._cycleInc ) % Maths.PI_2;
+        this._value = ( this._value + ( dt * 1000 * this._speedScale ) * this._cycleInc ) % Maths.TAU;
         if( this.onUpdate ) this.onUpdate( this );
         return this;
     }
@@ -31,17 +31,17 @@ class Cycle{
 
     // #region BASIC GETTERS
     /** Get Cycle Value, 0 to 360 degrees in radians */
-    get( offset=0 ) : number{ return Maths.mod( this._value + offset, Maths.PI_2 ); }
+    get( offset=0 ) : number{ return Maths.mod( this._value + offset, Maths.TAU ); }
     
     /** Get Normalized Cycle Value - Range 0:1  */
-    asCycle01( offset=0 ) : number{ return this.get( offset ) * Maths.PI_2_INV; }
+    asCycle01( offset=0 ) : number{ return this.get( offset ) * Maths.TAU_INV; }
 
     /** Get Normalized Cycle Value - Range -1:1  */
-    asCycleN11( offset=0 ) : number{ return this.get( offset ) * Maths.PI_2_INV * 2.0 - 1.0; } // -1 : 1
+    asCycleN11( offset=0 ) : number{ return this.get( offset ) * Maths.TAU_INV * 2.0 - 1.0; } // -1 : 1
 
     /** Get Normalized Cycle Value that has been remapped into 0:1:0 */
     asCycle010( offset=0 ) : number{ 
-        const n = this.get( offset ) * Maths.PI_2_INV * 2;
+        const n = this.get( offset ) * Maths.TAU_INV * 2;
         return ( n > 1 )? 1 - (n - 1) : n;
     }
     // #endregion

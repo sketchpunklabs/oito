@@ -1,8 +1,8 @@
 export default class Maths{
     // #region CONSTANTS
+    static TAU          = 6.283185307179586;
     static PI_H         = 1.5707963267948966;
-    static PI_2         = 6.283185307179586;
-    static PI_2_INV     = 1 / 6.283185307179586;
+    static TAU_INV      = 1 / 6.283185307179586;
     static PI_Q         = 0.7853981633974483;
     static PI_Q3        = 1.5707963267948966 + 0.7853981633974483;
     static PI_270       = Math.PI + 1.5707963267948966;
