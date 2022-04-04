@@ -4,7 +4,7 @@ class Gradient{
     // #region STEP
     static step( edge: number, x: number ) : number{ return ( x < edge )? 0 : 1; }
 
-    /** t must be in the range of 0 to 1 */
+    /** t must be in the range of 0 to 1 : start & ends slowly*/
     static smoothTStep( t: number ): number{ return t * t * ( 3 - 2 * t ); }
 
     static smoothStep( min: number, max: number, v: number ) : number { //https://en.wikipedia.org/wiki/Smoothstep
@@ -18,6 +18,15 @@ class Gradient{
 
         v = ( v - min ) / ( max - min );
         return v * v * v * ( v * ( v * 6 - 15 ) + 10 );
+    }
+    
+    /** This is a smooth over shoot easing : t must be in the range of 0 to 1 */
+    static overShoot( t: number, n:number=2, k:number=2 ): number{
+        // https://www.youtube.com/watch?v=pydKWTSGMEM
+        t = t * t * ( 3 - 2 * t ); // SmoothTStep to smooth out the starting & end
+        const a = n * t * t;
+        const b = 1 - k * (( t - 1 )**2);
+        return a * ( 1-t ) + b * t;
     }
     // #endregion
 

@@ -19,6 +19,7 @@ import Maths            from './Maths';
 import Gradient         from './Gradient';
 import Cycle            from './Cycle';
 import Colour           from './Colour';
+import Lerp             from './Lerp';
 
 import type { 
     TVec2, TVec3, TVec4, TVec8,
@@ -32,7 +33,7 @@ export {
     Vec2, Vec3, Vec4, Vec3Buf, Quat, DualQuat,
     Mat3, Mat4,
     Transform, Transform2D,
-    Gradient, Colour, Cycle,
+    Gradient, Colour, Cycle, Lerp,
 
     TVec2, TVec3, TVec4, TVec8,
     TVec3Struct, TVec4Struct,

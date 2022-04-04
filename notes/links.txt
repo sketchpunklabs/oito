@@ -1,0 +1,5 @@
+https://glm.g-truc.net/0.9.3/api/a00164.html
+https://github.com/g-truc/glm/blob/master/glm/gtx/euler_angles.inl#L219
+
+Cosine Interolation
+https://www.youtube.com/watch?v=j155J5x6Pq0
