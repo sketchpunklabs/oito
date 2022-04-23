@@ -3,8 +3,13 @@ import type { TVec3, TVec2, TVec4, TVec3Struct } from "./global";
 class AVec3{
 
     // #region GETTERS
-    static lenSq( a: TVec3, b: TVec3 ): number{ return (a[ 0 ]-b[ 0 ]) ** 2 + (a[ 1 ]-b[ 1 ]) ** 2 + (a[ 2 ]-b[ 2 ]) ** 2; }
-    
+    static lenSq( a: TVec3 ) : number
+    static lenSq( a: TVec3, b: TVec3 ) : number
+    static lenSq( a: TVec3, b ?: TVec3 ) : number{ 
+        if( b === undefined ) return  a[ 0 ]**2 + a[ 1 ]**2 + a[ 2 ]** 2;
+        return (a[ 0 ]-b[ 0 ]) ** 2 + (a[ 1 ]-b[ 1 ]) ** 2 + (a[ 2 ]-b[ 2 ]) ** 2;
+    }
+
     static len( a: TVec3 ) : number
     static len( a: TVec3, b: TVec3 ) : number
     static len( a: TVec3, b ?: TVec3 ) : number{ 
@@ -231,8 +236,9 @@ class AVec3{
 
 
     // #region INTERPOLATION
-    static lerp( a: TVec3, b: TVec3, t: number, out: TVec3 ) : TVec3 {
+    static lerp( a: TVec3, b: TVec3, t: number, out ?: TVec3 ) : TVec3 {
         const ti = 1 - t; // Linear Interpolation : (1 - t) * v0 + t * v1;
+        out      = out || [0,0,0];
         out[ 0 ] = a[ 0 ] * ti + b[ 0 ] * t;
         out[ 1 ] = a[ 1 ] * ti + b[ 1 ] * t;
         out[ 2 ] = a[ 2 ] * ti + b[ 2 ] * t;
@@ -427,6 +433,14 @@ class AVec3{
         out[ 0 ] = a[ 0 ] * s;
         out[ 1 ] = a[ 1 ] * s;
         out[ 2 ] = a[ 2 ] * s;
+        return out;
+    }
+
+    static scaleThenAdd( v: TVec3, s: number, add: TVec3, out ?: TVec3 ) : TVec3 {
+        out      = out || v;
+        out[ 0 ] = v[ 0 ] * s + add[ 0 ];
+        out[ 1 ] = v[ 1 ] * s + add[ 1 ];
+        out[ 2 ] = v[ 2 ] * s + add[ 2 ];
         return out;
     }
 

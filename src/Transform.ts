@@ -1,6 +1,7 @@
 import type { TVec3, TVec4 }    from './global';
 import Vec3                     from './Vec3';
 import Quat                     from './Quat';
+import {default as vec3}        from './AVec3';
 
 // https://gabormakesgames.com/blog_transforms_transforms.html
 // https://gabormakesgames.com/blog_transforms_transform_world.html
@@ -164,12 +165,18 @@ class Transform{
     // #endregion
 
     // #region TRANSFORMATION
-    transformVec3( v: Vec3, out ?: Vec3 ) : Vec3{
-        //GLSL - vecQuatRotation(model.rotation, a_position.xyz * model.scale) + model.position;
-        return (out || v)
-            .fromMul( v, this.scl )
-            .transformQuat( this.rot )
-            .add( this.pos );
+    transformVec3( v: TVec3, out ?: TVec3 ) : TVec3{
+        // GLSL - vecQuatRotation(model.rotation, a_position.xyz * model.scale) + model.position;
+        // return (out || v)
+        //     .fromMul( v, this.scl )
+        //     .transformQuat( this.rot )
+        //     .add( this.pos );
+
+        out = out || v;
+        vec3.mul( v, this.scl, out );
+        vec3.transformQuat( out, this.rot );
+        vec3.add( out, this.pos );
+        return out;
     }
     // #endregion
 
