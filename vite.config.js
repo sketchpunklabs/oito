@@ -23,6 +23,7 @@ function getHtmlPaths( dirPath = __dirname, htmlPaths = {} ){
     return htmlPaths;
 }
 
+
 export default ( { command, mode } ) => {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     if( mode === "site" || command === "serve" ){
@@ -45,6 +46,7 @@ export default ( { command, mode } ) => {
         return {
             build: {
                 minify          : false,
+                emptyOutDir     : false,
 
                 lib             : {
                     entry   : path.resolve( __dirname, "src/oito.ts" ),
@@ -53,7 +55,6 @@ export default ( { command, mode } ) => {
                 },
 
                 rollupOptions   : {
-                    external    : [ "three", /^three\// ],
                 }
             },
         };

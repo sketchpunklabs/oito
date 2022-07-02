@@ -1,6 +1,6 @@
 {
     "name"          : "oito",
-    "version"       : "0.0.1",
+    "version"       : "0.0.2",
     "author"        : "Pedro Sousa ( Vor @ SketchPunk Labs )",
     "description"   : "Math Library",
     "keywords"      : [],
@@ -24,6 +24,8 @@
     "scripts"       : {
         "dev"           : "vite",
         "build"         : "vite build",
+        "build:fn"      : "vite build --config vite-fn.config.js",
+        "build:maths"   : "vite build --config vite-maths.config.js",
         "build:types"   : "tsc --declaration --noEmit false --emitDeclarationOnly --strict false --outDir ./dist",
         "build:site"    : "vite build --mode site",
         "pack"          : "npm pack",

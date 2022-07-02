@@ -13,12 +13,11 @@ export default class Maths{
     //#endregion
 
     // #region OPERATIONS
-
     static clamp( v: number, min: number, max: number ) : number { return Math.max( min, Math.min( max, v ) ); }
     static clamp01( v: number ) : number { return Math.max( 0, Math.min( 1, v ) ); }
 
     static fract( f: number ) : number { return f - Math.floor( f ); }
-    static near_zero( v: number) : number{ return (Math.abs(v) <= Maths.EPSILON)? 0 : v; }
+    static nearZero( v: number) : number{ return (Math.abs(v) <= Maths.EPSILON)? 0 : v; }
 
     static toRad( v: number ) : number { return v * Maths.DEG2RAD; }
     static toDeg( v: number ) : number { return v * Maths.RAD2DEG; }
@@ -145,7 +144,7 @@ export default class Maths{
     //#endregion
 
 
-    //#region MISC
+    // #region MISC
     // https://gist.github.com/jhermsmeier/72626d5fd79c5875248fd2c1e8162489
     /*
 
