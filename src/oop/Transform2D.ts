@@ -1,5 +1,5 @@
 
-import type { TVec2, TVec3, TVec4 } from './global';
+import type { TVec2, TVec3, TVec4 } from '../global';
 import Vec2                         from './Vec2';
 
 class Transform2D{

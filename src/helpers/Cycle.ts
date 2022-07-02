@@ -1,4 +1,4 @@
-import Maths from "./Maths";
+import Maths from "../Maths";
 
 class Cycle{
     // #region MAIN

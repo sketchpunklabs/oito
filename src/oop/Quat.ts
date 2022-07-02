@@ -1,5 +1,5 @@
-import type { TVec3, TVec4, TVec4Struct } from './global';
-import Vec3 from "./Vec3";
+import type { TVec3, TVec4, TVec4Struct } from '../global';
+import Vec3 from './Vec3';
 
 export default class Quat extends Float32Array{
     // #region STATIC VALUES

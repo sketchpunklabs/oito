@@ -8,3 +8,6 @@ https://www.youtube.com/watch?v=j155J5x6Pq0
 https://github.com/uber-web/math.gl/tree/master/modules/core/src/classes
 https://github.com/uber-web/math.gl/blob/master/modules/core/src/classes/euler.ts
 https://github.com/uber-web/math.gl/tree/master/modules/culling/src/lib/bounding-volumes
+
+
+https://iquilezles.org/articles/smoothsteps/

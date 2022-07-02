@@ -1,7 +1,7 @@
-import type { TVec2, TVec3, TVec4, TVec4Struct } from './global';
-import Vec3 from "./Vec3";
+import type { TVec2, TVec3, TVec4, TVec4Struct } from '../global';
+import vec3 from './vec3';
 
-export default class AQuat{
+export default class quat{
 
     // #region SETTERS
     /** Reset back to identity*/
@@ -57,13 +57,16 @@ export default class AQuat{
     }
 
     static toPolar( a: TVec4, out: TVec2 = [0,0] ) : TVec2{
-        const fwd     = new Vec3().fromQuat( a, Vec3.FORWARD ); // Forward Direction
-        const flat    = new Vec3( fwd.x, 0, fwd.z ).norm();     // Flatten Direction
-        let lon       = Vec3.angle( Vec3.FORWARD, flat );       // Lon Angle in Rads
-        let lat       = Vec3.angle( flat, fwd );                // Lat Angle in Rads
+        //const fwd     = new Vec3().fromQuat( a, vec3.FORWARD ); // Forward Direction
+        const fwd     = vec3.transformQuat( vec3.FORWARD, a );  // Forward Direction
+        //const flat    = new Vec3( fwd.x, 0, fwd.z ).norm();     // Flatten Direction
+        const flat    = vec3.norm( [ fwd[0], 0, fwd[2] ] );     // Flatten Direction
         
-        const d_side = Vec3.dot( fwd, Vec3.RIGHT );             // Right Hemi Test
-        const d_up   = Vec3.dot( fwd, Vec3.UP );                // Top Hemi Test
+        let lon       = vec3.angle( vec3.FORWARD, flat );       // Lon Angle in Rads
+        let lat       = vec3.angle( flat, fwd );                // Lat Angle in Rads
+        
+        const d_side = vec3.dot( fwd, vec3.RIGHT );             // Right Hemi Test
+        const d_up   = vec3.dot( fwd, vec3.UP );                // Top Hemi Test
 
         // Negitive Check
         if( d_side < 0 )	lon = -lon;
@@ -132,12 +135,12 @@ export default class AQuat{
         // http://glmatrix.net/docs/quat.js.html#line548
         // http://physicsforgames.blogspot.com/2010/03/Quat-tricks.html
 
-        const dot = Vec3.dot( a, b );
+        const dot = vec3.dot( a, b );
 
         if( dot < -0.999999 ){ // 180 opposites
-          const tmp = Vec3.cross( Vec3.LEFT, a );
-          if( Vec3.len( tmp ) < 0.000001 ) Vec3.cross( Vec3.UP, a, tmp );
-          this.axisAngle( Vec3.norm( tmp ), Math.PI, out );
+          const tmp = vec3.cross( vec3.LEFT, a );
+          if( vec3.len( tmp ) < 0.000001 ) vec3.cross( vec3.UP, a, tmp );
+          this.axisAngle( vec3.norm( tmp ), Math.PI, out );
 
         }else if( dot > 0.999999 ){ // Same Direction
             out[ 0 ] = 0;
@@ -145,7 +148,7 @@ export default class AQuat{
             out[ 2 ] = 0;
             out[ 3 ] = 1;
         }else{
-            const v = Vec3.cross( a, b );
+            const v = vec3.cross( a, b );
             out[ 0 ] = v[ 0 ];
             out[ 1 ] = v[ 1 ];
             out[ 2 ] = v[ 2 ];
@@ -233,7 +236,7 @@ export default class AQuat{
     // #region GETTERS
 
     /** Length / Magnitude squared of the vector. Good for quick simple testing */
-    static lenSqr( a :TVec4 ) : number{ return a[0]**2 + a[1]**2 + a[2]**2 + a[3]**2; }
+    static lenSq( a :TVec4 ) : number{ return a[0]**2 + a[1]**2 + a[2]**2 + a[3]**2; }
 
     static len( a :TVec4 ) : number { return Math.sqrt( a[0]**2 + a[1]**2 + a[2]**2 + a[3]**2 ); }
 
@@ -403,23 +406,19 @@ export default class AQuat{
     static look( vDir: TVec3, vUp: TVec3, out:TVec4 = [0,0,0,0] ) : TVec4 {
         // Ported to JS from C# example at https://pastebin.com/ubATCxJY
         // TODO, if Dir and Up are equal, a roll happends. Need to find a way to fix this.
-        const up    = new Vec3( vUp ),
-              zAxis	= new Vec3( vDir ),	// Forward
-              xAxis = new Vec3(),		// Right
-              yAxis = new Vec3();       // Up
+        const zAxis	= vec3.clone( vDir ),         // Forward
+              xAxis = vec3.cross( vUp, zAxis ),   // Right
+              yAxis = vec3.cross( zAxis, xAxis ); // Up
 
-        xAxis.fromCross( up, zAxis );
-        yAxis.fromCross( zAxis, xAxis ); // new up
-
-        xAxis.norm();
-        yAxis.norm();
-        zAxis.norm();
+        vec3.norm( xAxis );
+        vec3.norm( yAxis );
+        vec3.norm( zAxis );
 
         //fromAxis - Mat3 to Quat
-        const m00 = xAxis.x, m01 = xAxis.y, m02 = xAxis.z,
-              m10 = yAxis.x, m11 = yAxis.y, m12 = yAxis.z,
-              m20 = zAxis.x, m21 = zAxis.y, m22 = zAxis.z,
-            t = m00 + m11 + m22;
+        const m00 = xAxis[0], m01 = xAxis[1], m02 = xAxis[2],
+              m10 = yAxis[0], m11 = yAxis[1], m12 = yAxis[2],
+              m20 = zAxis[0], m21 = zAxis[1], m22 = zAxis[2],
+              t   = m00 + m11 + m22;
         let x, y, z, w, s;
 
         if(t > 0.0){
@@ -664,7 +663,7 @@ export default class AQuat{
     /** Apply Unit Vector Rotation to Quaternion */
     static mulUnitVecs( q: TVec4, a: TVec3, b: TVec3, out ?: TVec4 ) : TVec4{
         // fromUnitVecs
-        const dot = Vec3.dot( a, b );
+        const dot = vec3.dot( a, b );
         const ax  = q[0],		// A of mul
               ay  = q[1],
               az  = q[2],
@@ -672,9 +671,9 @@ export default class AQuat{
         let bx, by, bz, bw;
 
         if( dot < -0.999999 ){
-            const axis = Vec3.cross( Vec3.LEFT, a );
-            if( Vec3.len( axis ) < 0.000001 ) Vec3.cross( Vec3.UP, a, axis );
-            Vec3.norm( axis );
+            const axis = vec3.cross( vec3.LEFT, a );
+            if( vec3.len( axis ) < 0.000001 ) vec3.cross( vec3.UP, a, axis );
+            vec3.norm( axis );
 
             // fromAxisAngle
             const half  = Math.PI * .5,
@@ -689,7 +688,7 @@ export default class AQuat{
             bz          = 0;
             bw          = 1;
         }else{
-            const v     = Vec3.cross(a, b);
+            const v     = vec3.cross(a, b);
             bx          = v[0];
             by          = v[1];
             bz          = v[2];
@@ -854,7 +853,7 @@ export default class AQuat{
 
     // #region ANGULAR VECTOR
     static fromAngularVec( v: TVec3, out: TVec4=[0,0,0,1] ) : TVec4{
-        let len = Vec3.len( v );
+        let len = vec3.len( v );
         if( len < 0.000001 ){
             this.reset( out ); 
         }else{

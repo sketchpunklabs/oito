@@ -1,6 +1,6 @@
-import { TMat3, TMat4, TVec3, TVec4, TVec8 } from "./global";
+import { TMat3, TMat4, TVec3, TVec4, TVec8 } from "../global";
 
-class AMat4{
+class mat4{
     // #region MISC
 
     static identity( out ?:TMat4 ): TMat4 {
@@ -1361,4 +1361,4 @@ class AMat4{
     // #endregion
 }
 
-export default AMat4
+export default mat4

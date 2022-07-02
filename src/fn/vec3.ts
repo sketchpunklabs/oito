@@ -1,6 +1,16 @@
-import type { TVec3, TVec2, TVec4, TVec3Struct } from "./global";
+import type { TVec3, TVec2, TVec4, TVec3Struct } from '../global';
 
-class AVec3{
+class vec3{
+    // #region PROPERTIES
+    static AXIS     = [ [1,0,0], [0,1,0], [0,0,1] ];
+    static UP       = [  0,  1,  0 ];
+    static DOWN     = [  0, -1,  0 ];
+    static LEFT     = [ -1,  0,  0 ];
+    static RIGHT    = [  1,  0,  0 ];
+    static FORWARD  = [  0,  0,  1 ];
+    static BACK     = [  0,  0, -1 ];
+    static ZERO     = [  0,  0,  0 ];
+    // #endegion
 
     // #region GETTERS
     static lenSq( a: TVec3 ) : number
@@ -189,7 +199,7 @@ class AVec3{
     /** Create an Iterator Object that allows an easy way to loop a Float32Buffer
      * @example
      * let buf = new Float32Array( 3 * 10 );
-     * for( let v of AVec3.bufIter( buf ) ) console.log( v );
+     * for( let v of vec3.bufIter( buf ) ) console.log( v );
     */
     // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
     static bufIter( buf : Array<number> | Float32Array ) : { [Symbol.iterator]() : { next:()=>{ value:TVec3, done:boolean } } } {
@@ -199,7 +209,7 @@ class AVec3{
               next    = ()=>{
                 if( i >= len ) result.done = true;
                 else{
-                    AVec3.fromBuf( buf, i, result.value );
+                    vec3.fromBuf( buf, i, result.value );
                     i += 3;
                 }
                 return result;
@@ -211,7 +221,7 @@ class AVec3{
          * @example
          * let verts = [ 0,0,0, 0,0,0 ];
          * let dir   = [ 0,1,0 ];
-         * AVec3.bufMap( vertices, (v,i)=>v.add( dir ) ); */
+         * vec3.bufMap( vertices, (v,i)=>v.add( dir ) ); */
     static bufMap( buf: Array<number> | Float32Array, fn: ( v:TVec3, i:number )=>void, startIdx=0, endIdx=0 ) : void{
         const end = ( endIdx == 0 )? buf.length : endIdx;
         const v   = [0,0,0];
@@ -688,6 +698,8 @@ class AVec3{
         return out;
     }
 
+
+    static clone( a:TVec3 ): TVec3{ return [ a[0], a[1], a[2] ]; }
     // #endregion
 
 
@@ -716,4 +728,4 @@ class AVec3{
 
 }
 
-export default AVec3;
+export default vec3;

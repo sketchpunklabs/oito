@@ -1,4 +1,4 @@
-import type { TVec2, TVec3 } from './global';
+import type { TVec2, TVec3 } from '../global';
 
 class Vec2 extends Float32Array{
 

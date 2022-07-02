@@ -1,4 +1,4 @@
-import type { TVec4, TVec4Struct } from './global';
+import type { TVec4, TVec4Struct } from '../global';
 
 class Vec4 extends Float32Array{
     // #region STATIC VALUES

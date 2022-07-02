@@ -1,4 +1,4 @@
-import type { TVec3, TVec3Struct } from './global';
+import type { TVec3, TVec3Struct } from '../global';
 
 type TNumAry = number[] | Float32Array;
 

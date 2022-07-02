@@ -1,4 +1,4 @@
-import { TMat3, TMat4, TVec3, TVec4, TVec8 } from "./global";
+import { TMat3, TMat4, TVec3, TVec4, TVec8 } from "../global";
 
 class Mat4 extends Float32Array{
     //#region STATIC VALUES

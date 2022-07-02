@@ -1,7 +1,7 @@
-import type { TVec3, TVec4 }    from './global';
+import type { TVec3, TVec4 }    from '../global';
 import Vec3                     from './Vec3';
 import Quat                     from './Quat';
-import {default as vec3}        from './AVec3';
+import vec3                     from '../fn/vec3';
 
 // https://gabormakesgames.com/blog_transforms_transforms.html
 // https://gabormakesgames.com/blog_transforms_transform_world.html

@@ -1,4 +1,4 @@
-import type { TVec3, TVec4, TVec8 } from './global';
+import type { TVec3, TVec4, TVec8 } from '../global';
 
 class DualQuat extends Float32Array{
     // #region STATIC VALUES
