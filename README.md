@@ -11,6 +11,11 @@
 npm install https://github.com/sketchpunklabs/oito
 ```
 
+### NPM Reinstall ###
+```
+npm install github:sketchpunklabs/oito --force --no-save
+```
+
 ### Development Setup ###
 ```
 git clone --depth=1 https://github.com/sketchpunklabs/oito
@@ -18,3 +23,5 @@ cd oito
 npm install
 npm run dev
 ```
+
+
