@@ -9,5 +9,12 @@ https://github.com/uber-web/math.gl/tree/master/modules/core/src/classes
 https://github.com/uber-web/math.gl/blob/master/modules/core/src/classes/euler.ts
 https://github.com/uber-web/math.gl/tree/master/modules/culling/src/lib/bounding-volumes
 
+// Some good extra QUAT functions and explaintion
+https://theorangeduck.com/page/exponential-map-angle-axis-angular-velocity
 
 https://iquilezles.org/articles/smoothsteps/
+
+Interesting Easing Functions
+https://github.com/BabylonJS/Babylon.js/blob/80c65876dbcdf005c12c37d255a1fe020b36b62b/packages/dev/core/src/Animations/easing.ts
+https://github.com/BabylonJS/Babylon.js/blob/80c65876dbcdf005c12c37d255a1fe020b36b62b/packages/dev/core/src/Animations/easing.ts#L358
+https://github.com/BabylonJS/Babylon.js/blob/80c65876dbcdf005c12c37d255a1fe020b36b62b/packages/dev/core/src/Maths/math.path.ts#L19

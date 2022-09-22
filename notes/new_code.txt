@@ -19,3 +19,71 @@ var funhash = function(s) {
         h = Math.imul(h ^ s.charCodeAt(i), 2654435761);
     return (h ^ h >>> 16) >>> 0;
 };
+
+
+https://github.com/Unity-Technologies/UnityCsReference/blob/master/Runtime/Export/Math/Mathf.cs
+public static float LerpAngle(float a, float b, float t)
+{
+    float delta = Repeat((b - a), 360);
+    if (delta > 180)
+        delta -= 360;
+    return a + delta * Clamp01(t);
+}
+
+// Calculates the shortest difference between two given angles.
+public static float DeltaAngle(float current, float target)
+{
+    float delta = Mathf.Repeat((target - current), 360.0F);
+    if (delta > 180.0F)
+        delta -= 360.0F;
+    return delta;
+}
+
+// Loops the value t, so that it is never larger than length and never smaller than 0.
+public static float Repeat(float t, float length)
+{
+    return Clamp(t - Mathf.Floor(t / length) * length, 0.0f, length);
+}
+
+
+Fuzzy Noise: https://shadertoy.com/view/MltyR4
+
+
+https://www.shadertoy.com/view/ltSfWV
+float Smoothstep(float x)
+{
+    x = clamp(x, 0.0, 1.0);
+    
+    return x*x * (x * -2.0 + 3.0);
+}
+
+float Smootherstep(float x)
+{
+    x = clamp(x, 0.0, 1.0);
+    
+    return x*x*x * (x * (x * 6.0 - 15.0) + 10.0);
+}
+
+// continuity is independent of steepness parameter s
+// at x = 1/2: 3rd derivative = 0 for s = 1;  2rd derivative = 0 for all values of s 
+float Smootheststep(float x, float s)
+{
+    const float ss = 2.88539;// 2.0 / log(2.0)
+    
+    s *= ss;
+    
+    x = clamp(x, 0.0, 1.0);
+    
+    return 1.0 / (1.0 + exp2(tan(x * Pi - Pi05) * -s));
+}
+
+float InvSmootheststep(float x, float s)
+{
+    const float ss = 2.88539;// 2.0 / log(2.0)
+    
+    s *= ss;
+    
+    x = clamp(x, 0.0, 1.0);
+    
+    return atan(log2(1.0 / (1.0 - x) - 1.0) / s) * RcpPi + 0.5;
+}

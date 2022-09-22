@@ -68,6 +68,12 @@ export default class Maths{
         return x * ti + y * ( 1 - ti );
     }
 
+    // Damp Lerp with a 60FPS Exponential Decay
+    static damp60( x: number, y: number, t: number, dt: number ): number {
+        const tt = Math.exp( Math.log( 1-t ) * ( dt / 16.6666 ) );
+        return x * tt + y * ( 1 - tt );
+    }
+
     //static select( t:number, f:number, b:boolean ): number{ return b ? t : f; }
     static negateIf( val: number, b: boolean ): number { return b ? -val : val; }
 
