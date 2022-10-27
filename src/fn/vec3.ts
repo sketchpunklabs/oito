@@ -10,7 +10,7 @@ class vec3{
     static FORWARD  = [  0,  0,  1 ];
     static BACK     = [  0,  0, -1 ];
     static ZERO     = [  0,  0,  0 ];
-    // #endegion
+    // #endregion
 
     // #region GETTERS
     static lenSq( a: TVec3 ) : number
@@ -406,11 +406,25 @@ class vec3{
 
 
     // #region OPERATIONS
-    static add( a: TVec3, b: TVec3, out ?: TVec3 ) : TVec3 {
+    static add( a: TVec3, b: CSSAnimation, out ?: TVec3 ) : TVec3 {
         out      = out || a;
         out[ 0 ] = a[ 0 ] + b[ 0 ];
         out[ 1 ] = a[ 1 ] + b[ 1 ];
         out[ 2 ] = a[ 2 ] + b[ 2 ];
+        return out;
+    }
+
+    static sum( out: TVec3, ...ary: TVec3[] ) : TVec3{
+        out[ 0 ] = ary[ 0 ][ 0 ];
+        out[ 1 ] = ary[ 0 ][ 1 ];
+        out[ 2 ] = ary[ 0 ][ 2 ];
+    
+        for( let i=1; i < ary.length; i++ ){
+            out[ 0 ] += ary[ i ][ 0 ];
+            out[ 1 ] += ary[ i ][ 1 ];
+            out[ 2 ] += ary[ i ][ 2 ];
+        }
+    
         return out;
     }
 

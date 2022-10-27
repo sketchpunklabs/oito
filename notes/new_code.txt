@@ -1,3 +1,15 @@
+// Pivot Rotation
+// transform.position += (transform.rotation*Pivot);
+// if (RotateX)
+//     transform.rotation *= Quaternion.AngleAxis(45*Time.deltaTime, Vector3.right);
+// if (RotateY)
+//     transform.rotation *= Quaternion.AngleAxis(45*Time.deltaTime, Vector3.up);
+// if (RotateZ)
+//     transform.rotation *= Quaternion.AngleAxis(45*Time.deltaTime, Vector3.forward);
+// transform.position -= (transform.rotation*Pivot);
+
+
+
 // A long tail ease out function. Input range, 0-1. 
 float QuarticEaseOut(const float& Input){ return (FMath::Pow(Input-1.0f, 4.0f) * -1.0f) + 1.0f; };
 desmos y\ =\ \left(x-1\right)^{4}\ \cdot\ -1\ +\ 1
