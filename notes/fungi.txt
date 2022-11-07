@@ -1,0 +1,162 @@
+mat4 viewMatrix(vec3 eye, vec3 center, vec3 up) {  //Look At
+	vec3 f = normalize(center - eye);
+	vec3 s = normalize(cross(f, up));
+	vec3 u = cross(s, f);
+	return mat4(
+		vec4(s, 0.0),
+		vec4(u, 0.0),
+		vec4(-f, 0.0),
+		vec4(0.0, 0.0, 0.0, 1)
+	);
+}
+
+mat4 rotateY(float theta) {
+    float c = cos(theta);
+    float s = sin(theta);
+
+    return mat4(
+        vec4(c, 0, s, 0),
+        vec4(0, 1, 0, 0),
+        vec4(-s, 0, c, 0),
+        vec4(0, 0, 0, 1)
+    );
+}
+
+//http://jamie-wong.com/2016/07/15/ray-marching-signed-distance-functions/
+float intersectSDF(float distA, float distB) {
+    return max(distA, distB);
+}
+
+float unionSDF(float distA, float distB) {
+    return min(distA, distB);
+}
+
+float differenceSDF(float distA, float distB) {
+    return max(distA, -distB);
+}
+
+
+// https://github.com/CiaccoDavide/CiaccoPRNG
+class CiaccoRandom{
+	static tree = 0;
+
+    static seed( v ){
+        this.tree = Math.abs( v ) % 9999999+1;
+        return this.rand( 0, 9999999 );
+    }
+
+    static rand( min, max ){
+        this.tree = ( this.tree * 123 ) % 69522569;
+        return this.tree % ( max - min + 1 ) + min;
+    }
+}
+
+//https://www.youtube.com/watch?v=U9q-jM3-Phc&
+function ValueNoise2D_Closure(){
+	let cache	= {};
+	let rand	= ( x, y )=>{
+		let key = x+"."+y;
+		if( !cache[ key ] ) cache[ key ] = Math.random();
+		return cache[ key ];
+	};
+
+	return ( x, y )=>{
+		// Bilinear Filter
+		let x1	= Math.floor( x ),   // Get Base Number
+			y1	= Math.floor( y ),
+			x2	= x1 + 1,            // Get Next Coord
+			y2	= y1 + 1,
+			xp	= x - x1,			// Fract()
+			yp	= y - y1,
+			p11	= rand( x1, y1 ),	// Rnd at Pos
+			p21	= rand( x2, y1 ),
+			p12	= rand( x1, y2 ),	
+			p22	= rand( x2, y2 ),
+			px1	= p11 * (1-xp) + p21 * xp,	// Lerp X
+			px2 = p12 * (1-xp) + p22 * xp;
+		return px1 * (1-yp) + px2 * yp;		// Lerp Y
+	};
+}
+
+function simple_rng(){
+	// https://www.codeproject.com/script/Articles/ViewDownloads.aspx?aid=25172
+	let m_w		= 521288629;
+	let m_z		= 362436069;
+	let uint	= new Uint32Array(1);
+	return{
+		next : function(){
+			m_z			= 36969 * (m_z & 65535) + (m_z >> 16);
+			m_w			= 18000 * (m_w & 65535) + (m_w >> 16);
+			uint[ 0 ]	= (m_z << 16) + m_w;
+			return (uint[ 0 ] + 1) * 2.328306435454494e-10;
+		},
+		seed : function( w=null, z=null ){
+			m_w = w;
+			m_z = z ?? 362436069;
+			return this;
+		}
+	};
+}
+
+
+/*
+https://stackoverflow.com/questions/5674149/3d-coordinates-on-a-sphere-to-latitude-and-longitude
+lat = acos(y / radius);
+long = (atan2(x,z) + PI + PI / 2) % (PI * 2) - PI;
+    var phi = Math.acos(point.y / radius); //lat 
+    var theta = (Math.atan2(point.x, point.z) + Math.PI + Math.PI / 2) % (Math.PI * 2) - Math.PI; // lon
+    
+    // theta is a hack, since I want to rotate by Math.PI/2 to start.  sorryyyyyyyyyyy
+    return {
+        lat: 180 * phi / Math.PI - 90,
+        lon: 180 * theta / Math.PI
+*/
+
+
+
+//https://github.com/OpenImageIO/oiio/blob/master/src/include/OpenImageIO/fmath.h
+
+/// Bilinearly interoplate values v0-v3 (v0 upper left, v1 upper right,
+/// v2 lower left, v3 lower right) at coordinates (s,t) and return the
+/// result.  This is a template, and so should work for any types.
+template <class T, class Q>
+OIIO_FORCEINLINE OIIO_HOSTDEVICE T
+bilerp(const T& v0, const T& v1, const T& v2, const T& v3, const Q& s, const Q& t)
+{
+    // NOTE: a*(t-1) + b*t is much more numerically stable than a+t*(b-a)
+    Q s1 = Q(1) - s;
+    return T ((Q(1)-t)*(v0*s1 + v1*s) + t*(v2*s1 + v3*s));
+}
+
+
+
+/// Bilinearly interoplate arrays of values v0-v3 (v0 upper left, v1
+/// upper right, v2 lower left, v3 lower right) at coordinates (s,t),
+/// storing the results in 'result'.  These are all vectors, so do it
+/// for each of 'n' contiguous values (using the same s,t interpolants).
+template <class T, class Q>
+inline OIIO_HOSTDEVICE void
+bilerp (const T *v0, const T *v1,
+        const T *v2, const T *v3,
+        Q s, Q t, int n, T *result)
+{
+    Q s1 = Q(1) - s;
+    Q t1 = Q(1) - t;
+    for (int i = 0;  i < n;  ++i)
+        result[i] = T (t1*(v0[i]*s1 + v1[i]*s) + t*(v2[i]*s1 + v3[i]*s));
+}
+
+/// Trilinearly interoplate arrays of values v0-v7 (v0 upper left top, v1
+/// upper right top, ...) at coordinates (s,t,r), and return the
+/// result.  This is a template, and so should work for any types.
+template <class T, class Q>
+OIIO_FORCEINLINE OIIO_HOSTDEVICE T
+trilerp (T v0, T v1, T v2, T v3, T v4, T v5, T v6, T v7, Q s, Q t, Q r)
+{
+    // NOTE: a*(t-1) + b*t is much more numerically stable than a+t*(b-a)
+    Q s1 = Q(1) - s;
+    Q t1 = Q(1) - t;
+    Q r1 = Q(1) - r;
+    return T (r1*(t1*(v0*s1 + v1*s) + t*(v2*s1 + v3*s)) +
+               r*(t1*(v4*s1 + v5*s) + t*(v6*s1 + v7*s)));
+}

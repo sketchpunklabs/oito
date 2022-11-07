@@ -102,6 +102,15 @@ export default class Maths{
         return start + es * v;
     }
 
+    /*
+    https://github.com/godotengine/godot/blob/master/core/math/math_funcs.h
+    static _ALWAYS_INLINE_ float lerp_angle(float p_from, float p_to, float p_weight) {
+        float difference = fmod(p_to - p_from, (float)Math_TAU);
+        float distance = fmod(2.0f * difference, (float)Math_TAU) - difference;
+        return p_from + distance * p_weight;
+    }
+    */
+
     //#endregion
 
     // #region TRIG
@@ -140,6 +149,7 @@ export default class Maths{
         t = Maths.repeat( t, len * 2 );
         return len - Math.abs( t - len );
     }
+
     //static pingPong( a: number, b: number ){ return ( b != 0 ) ? Math.abs( Maths.fract( (a - b) / ( b * 2) ) * b * 2 - b) : 0.0; }
 
     // #endregion
@@ -149,6 +159,50 @@ export default class Maths{
     static dec2bin( dec: number ): string{ return ( dec >>> 0 ).toString( 2 ); }
     //#endregion
 
+    // #region WAVES
+    /*
+    //https://github.com/nodebox/g.js/blob/master/src/libraries/math.js
+    static sawtoothWave(time, min=0, max=1, period=1){
+        var amplitude	= (max - min) * 0.5,
+            frequency	= Maths.PI_2 / period,
+            phase		= 0;
+
+        if(time % period !== 0)	phase = (time * frequency) % Maths.PI_2;
+        if(phase < 0)			phase += Maths.PI_2;
+
+        //return 2 * (phase / Maths.PI_2) * amplitude + min;
+        return 2 * (phase * 0.15915494309) * amplitude + min; //Change Div to Mul
+    }
+
+    static triangleWave(v, min=0, max=1, period = 1){
+        var amplitude	= (max - min) * 0.5,
+            frequency	= Maths.PI_2 / period,
+            phase		= 0,
+            time		= v + period * 0.25; // div 4 changed to * 0.25
+            
+        if(time % period !== 0)	phase	= (time * frequency) % Maths.PI_2;
+        if(phase < 0) 			phase	+= Maths.PI_2;
+
+        return 2 * amplitude * (1 + -Math.abs((phase / Maths.PI_2) * 2 - 1)) + min;
+    }
+
+    static squareWave (v, min=0, max=1, period=1){ return ( (v % period) <  (period * 0.5) )? max : min; }
+
+    static triangle_wave( t ){
+        t -= Math.floor( t * 0.5 ) * 2;
+        t = Math.min( Math.max( t, 0 ), 2 );
+        return 1 - Math.abs( t - 1 );
+    }
+
+    //static cheap_parabola( t ) { return 1.0 - Math.abs( t * 2.0 - 1.0 ); }
+
+    // Triangle Wave :: y = abs((x++ % 6) - 3);
+    // Square Wave :: y = (x++ % 6) < 3 ? 3 : 0;
+    // Sign Wave :: y = 3 * sin((float)x / 10);
+    // Concave Wave :: y = pow(abs((x++ % 6) - 3), 2.0);
+    // Diff Concave Wave :: y = pow(abs((x++ % 6) - 3), 0.5);
+    */
+    // #endregion
 
     // #region MISC
     // https://gist.github.com/jhermsmeier/72626d5fd79c5875248fd2c1e8162489

@@ -18,3 +18,7 @@ Interesting Easing Functions
 https://github.com/BabylonJS/Babylon.js/blob/80c65876dbcdf005c12c37d255a1fe020b36b62b/packages/dev/core/src/Animations/easing.ts
 https://github.com/BabylonJS/Babylon.js/blob/80c65876dbcdf005c12c37d255a1fe020b36b62b/packages/dev/core/src/Animations/easing.ts#L358
 https://github.com/BabylonJS/Babylon.js/blob/80c65876dbcdf005c12c37d255a1fe020b36b62b/packages/dev/core/src/Maths/math.path.ts#L19
+
+
+// Interpolation Plus other good stuff in the library
+https://github.com/juj/MathGeoLib/blob/master/src/Math/Interpolate.h

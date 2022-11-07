@@ -9,6 +9,11 @@
 // transform.position -= (transform.rotation*Pivot);
 
 
+a•b is the dot product
+(a•b)/√(b•b) is scalar projection
+b(a•b)/(b•b) is vector projection
+(a•b)/(b•b) is uh, very useful, but what is it called?
+
 
 // A long tail ease out function. Input range, 0-1. 
 float QuarticEaseOut(const float& Input){ return (FMath::Pow(Input-1.0f, 4.0f) * -1.0f) + 1.0f; };
@@ -99,3 +104,25 @@ float InvSmootheststep(float x, float s)
     
     return atan(log2(1.0 / (1.0 - x) - 1.0) / s) * RcpPi + 0.5;
 }
+
+https://twitter.com/thespite/status/1503899796536446979?s=20&t=1-mu0UawcOGAfDzSaMwtZQ
+point in hexagon
+( v )
+R = 1; // Radius
+a = atan2( v.z, v.x );
+b = (2 * PI) / 6
+g = a - b * ( -1 + floor( a/b ) )
+r = ( R * 0.5 * sqrt(3) ) / sin( g )
+d = v.length()
+return d < r;
+
+https://twitter.com/thespite/status/1503901479597453317?s=20&t=1-mu0UawcOGAfDzSaMwtZQ
+point in any polygon circle of radius R
+( v )
+R = 1; // Radius
+a = atan2( v.z, v.x );
+sides = 6
+r = ( R * cos( PI / sides ) ) /
+cos( ( 2* asin( sin( ( sides * a ) / 2 ))) / sides )
+d = v.length()
+return d < r;
