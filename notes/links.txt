@@ -22,3 +22,8 @@ https://github.com/BabylonJS/Babylon.js/blob/80c65876dbcdf005c12c37d255a1fe020b3
 
 // Interpolation Plus other good stuff in the library
 https://github.com/juj/MathGeoLib/blob/master/src/Math/Interpolate.h
+
+
+// Lots of interesting stuff
+https://github.com/spite/codevember-2022/blob/main/modules/Maf.js
+https://github.com/spite/codevember-2022/blob/main/modules/easings.js
