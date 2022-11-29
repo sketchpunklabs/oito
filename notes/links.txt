@@ -27,3 +27,7 @@ https://github.com/juj/MathGeoLib/blob/master/src/Math/Interpolate.h
 // Lots of interesting stuff
 https://github.com/spite/codevember-2022/blob/main/modules/Maf.js
 https://github.com/spite/codevember-2022/blob/main/modules/easings.js
+
+
+// Swizzle Rotations of Quaternions
+https://github.com/FreyaHolmer/Mathfs/blob/446593cea11f7a25b8e73b8398d77f665039bcee/Runtime/Extensions.cs#L159-L177
