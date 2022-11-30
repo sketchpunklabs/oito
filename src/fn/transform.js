@@ -123,6 +123,17 @@ export function invert( out, a ){
     vec3.transformQuat( out.pos, p, out.rot );
     return out;
 }
+
+export function preMulChain( out, ...ary ){
+    const t = clone( ary[ ary.length - 1 ] );
+    
+    for( let i = ary.length - 2; i >= 0; i-- ){
+        mul( t, ary[ i ], t );
+    }
+
+    copy( out, t );
+    return out;
+}
 // #endregion
 
 // #region TRANSFORM
