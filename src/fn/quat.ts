@@ -989,6 +989,28 @@ export default class quat{
 
 
 /*
+https://twitter.com/D_M_Gregory/status/1598405568489816112?s=20&t=J4HVvHy-sXkrF_BRNdwLLQ
+https://twitter.com/FreyaHolmer/status/1596527135359139841?s=20&t=J4HVvHy-sXkrF_BRNdwLLQ
+https://twitter.com/FreyaHolmer/status/1598407321100902400?s=20&t=J4HVvHy-sXkrF_BRNdwLLQ
+here's 90 degree extrinsic rotations swizzle
+X + 90° (x+w, y-z, z+y, w-x)/√2 
+X - 90° (x-w, y+z, z-y, w+x)/√2 
+
+Y + 90° (x+z, y+w, z-x, w-y)/√2
+Y - 90° (x-z, y-w, z+x, w+y)/√2
+
+Z + 90° (x-y, y+x, z+w, w-z)/√2
+Z - 90° (x+y, y-x, z-w, w+z)/√2
+
+can multiple each component by 1 / sqrt( 2 ) instead of
+division when using freya's example of how its done. Freya
+also has the local space version where the top is world space
+
+note, seems like the + or - is just the signs swopped
+since freya has local space versions, can probably do 
+the same by swopping
+
+
 angleTo( q ) {
     return 2 * Math.acos( Math.abs( MathUtils.clamp( this.dot( q ), - 1, 1 ) ) );
 }
