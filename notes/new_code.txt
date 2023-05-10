@@ -126,3 +126,49 @@ r = ( R * cos( PI / sides ) ) /
 cos( ( 2* asin( sin( ( sides * a ) / 2 ))) / sides )
 d = v.length()
 return d < r;
+
+
+function dampSpringValue( value, target, velocity, dt, damp=0.4, tension=1 ){
+    const accel = ( value - target ) * tension;
+    const vel   = ( velocity * damp ) + accel * dt;
+    const val   = value + vel * dt;
+    return [ val, vel ];
+}
+
+//startAmplitude*sin(omega*t+startPhase)*exp(-t*dampningConstant)
+// https://www.statisticshowto.com/calculus-definitions/damped-sine-wave/
+// function dampedSineWave( t, decay=0.9, maxAmp=1 ){
+//     return maxAmp * Math.exp( -decay * t ) * Math.cos( Math.PI * 2 );
+// }
+
+
+https://www.alexisbacot.com/blog/the-art-of-damping  ( EXTRA SPRING STUFF )
+https://github.com/AlexisBacot/ArtOfDamping/blob/main/Assets/Scripts/ToolDamper.cs
+
+
+
+https://github.com/Unity-Technologies/UnityCsReference/blob/61f92bd79ae862c4465d35270f9d1d57befd1761/Runtime/Export/Math/Mathf.cs#L303
+function smoothDamp( cur, tar, vel, dt, smoothTime=0.0001, maxSpeed=Infinity ){
+    // Based on Game Programming Gems 4 Chapter 1.10
+    smoothTime      = Math.max( 0.0001, smoothTime );
+    const omega     = 2 / smoothTime;
+    const x         = omega * dt;
+    const exp       = 1 / ( 1  + x + 0.48 * x * x + 0.235 * x * x * x);
+    let   change    = cur - tar;
+
+    // Clamp maximum speed
+    const maxChange = maxSpeed * smoothTime;
+    change          = Math.min( maxChange, Math.max( change, -maxChange ) );
+
+    const temp      = ( vel + omega * change ) * dt;
+    vel             = ( vel - omega * temp ) * exp;
+    let output      = ( cur - change ) + ( change + temp ) * exp;
+
+    // Prevent overshooting
+    if( tar - cur > 0.0 && output > tar ){
+        output  = tar;
+        vel     = (output - tar) / dt;
+    }
+
+    return [ output, vel ];
+}
