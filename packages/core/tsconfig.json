@@ -1,0 +1,15 @@
+{
+  "extends"           : "../../tsconfig.json",
+  "include"           : [ "src/**/*" ],
+  "exclude"           : [ "**/*.test.ts", "node_modules" ],
+  "compilerOptions"   : {
+      "rootDir"               : "src",
+      "outDir"                : "./build",
+      "tsBuildInfoFile"       : "./build/tsconfig.tsbuildinfo",
+      "composite"             : true,
+  },
+
+  "references": [
+    { "path": "../fn" }
+  ],
+}
