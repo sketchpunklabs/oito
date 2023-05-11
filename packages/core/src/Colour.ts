@@ -13,7 +13,7 @@ const COLORS : { [key:string]: number } = {
 	"gray"		: 0x808080,
 	"darkgray"	: 0x303030,
 };
-// #endregion ////////////////////////////////////////////////////////
+// #endregion
 
 class Colour extends Float32Array{
     // #region MAIN
@@ -40,7 +40,16 @@ class Colour extends Float32Array{
     get b() : number{ return this[ 2 ]; }   set b( v: number ){ this[ 2 ] = v; }
     get a() : number{ return this[ 3 ]; }   set a( v: number ){ this[ 3 ] = v; }
 
-    //get rgbSlice(){ return new Float32Array( this.buffer, 0, 3*4 ); } // See if can create new F32 from buf but maybe just the 3 floats instead of 4.
+    toHex(): string{ return ( "#"+('000000' + this.toNumber().toString( 16 )).substr( -6 ) ); }
+
+    toNumber(): number{
+        // return  ( this[ 0 ] * 255 ) << 16 |
+        //         ( this[ 1 ] * 255 ) << 8  |
+        //         ( this[ 2 ] * 255 );
+        return  (~ ~( this[ 0 ] * 255 )) << 16 |
+                (~ ~( this[ 1 ] * 255 )) << 8  |
+                (~ ~( this[ 2 ] * 255 ));
+    }
 
     fromName( s: string ) : this{
         if( COLORS[ s ] !== undefined ) this.fromNumber( COLORS[ s ] );
@@ -66,6 +75,38 @@ class Colour extends Float32Array{
         return this;
     }
 
+    // Values 0 & 1, Hue, sat, value ( light )
+    fromHSV( h: number, s: number = 1.0, v: number = 1.0 ): this{
+        const i = Math.floor(h * 6);
+        const f = h * 6 - i;
+        const p = v * (1 - s);
+        const q = v * (1 - f * s);
+        const t = v * (1 - (1 - f) * s);
+
+        switch( i % 6 ){
+            case 0: this[ 0 ] = v, this[ 1 ] = t, this[ 2 ] = p; break;
+            case 1: this[ 0 ] = q, this[ 1 ] = v, this[ 2 ] = p; break;
+            case 2: this[ 0 ] = p, this[ 1 ] = v, this[ 2 ] = t; break;
+            case 3: this[ 0 ] = p, this[ 1 ] = q, this[ 2 ] = v; break;
+            case 4: this[ 0 ] = t, this[ 1 ] = p, this[ 2 ] = v; break;
+            case 5: this[ 0 ] = v, this[ 1 ] = p, this[ 2 ] = q; break;
+        }
+
+        return this;
+    }
+
+    fromHSL( h: number, s: number = 1.0, l: number = 0.5 ): this{
+        const ang = h * 360;
+        const a   = s * Math.min( l, 1 - l );
+        const k   = ( n: number )=>( n + ang / 30 ) % 12;
+
+        this[ 0 ] = l - a * Math.max( -1, Math.min( k( 0 ) - 3 , Math.min( 9 - k( 0 ), 1 ) ) );
+        this[ 1 ] = l - a * Math.max( -1, Math.min( k( 8 ) - 3 , Math.min( 9 - k( 8 ), 1 ) ) );
+        this[ 2 ] = l - a * Math.max( -1, Math.min( k( 4 ) - 3 , Math.min( 9 - k( 4 ), 1 ) ) );
+
+        return this;
+    }
+
     fromLerp( a: Colour, b: Colour, t: number ): this{
         const ti = 1 - t;
         this[ 0 ] = a[ 0 ] * ti + b[ 0 ] * t;
@@ -75,11 +116,59 @@ class Colour extends Float32Array{
         return this;
     }
 
-    toRGBNumber(): number{
-        return  ( this[ 0 ] * 255 ) << 16 |
-                ( this[ 1 ] * 255 ) << 8  |
-                ( this[ 2 ] * 255 );
+    fromPalettes( t: number, p: { a:[number,number,number], b:[number,number,number], c:[number,number,number], d:[number,number,number] } ): this{
+        // https://iquilezles.org/articles/palettes/
+        this[ 0 ] = p.a[0] + p.b[0] * Math.cos( 6.28318 * ( p.c[0] * t + p.d[0] ) );
+        this[ 1 ] = p.a[1] + p.b[1] * Math.cos( 6.28318 * ( p.c[1] * t + p.d[1] ) );
+        this[ 2 ] = p.a[2] + p.b[2] * Math.cos( 6.28318 * ( p.c[2] * t + p.d[2] ) );
+        return this;
+
+        // const pa = {
+        //     a:[0.5,0.5,0.5], 
+        //     b:[0.5, 0.5, 0.5], 
+        //     c:[1.0, 1.0, 1.0], 
+        //     d:[0.00, 0.33, 0.67],
+        // }
+        
+        // const pb = {
+        //     a:[0.5,0.5,0.5],
+        //     b:[0.5,0.5,0.5],
+        //     c:[2.0,1.0,0.0],
+        //     d:[0.5,0.20,0.25]
+        // }
     }
+
+    /*
+    // L: 0 > 1, a: -0.5 > 0.5, b: -0.5 > 0.5
+    // Basic Color Ramp : oklab( 0.5, .5 * Math.sin(PI2 * t), .5 * Math.cos(PI2 * t) )
+    function oklab( L, a, b ){
+        const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+        const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+        const s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+        const l  = l_ * l_ * l_;
+        const m  = m_ * m_ * m_;
+        const s  = s_ * s_ * s_;
+        return [
+          rgbClampRound( 255 * gamma( +4.0767245293 * l - 3.3072168827 * m + 0.2307590544 * s ) ),
+          rgbClampRound( 255 * gamma( -1.2681437731 * l + 2.6093323231 * m - 0.3411344290 * s ) ),
+          rgbClampRound( 255 * gamma( -0.0041119885 * l - 0.7034763098 * m + 1.7068625689 * s ) ),
+        ];
+      }
+      
+      // Chroma is like saturation with a lil of light
+      // lightness: 0 > 1, chroma: 0.01 > 0.5, hue: 0 > 6.28
+      // chroma just controls the max distance for A & B which has a -+ range of 0.5
+      // hue is just the degree angle that gets mapped to radians
+      function oklch( lightness, chroma, hue ) {
+          const h = 2 * Math.PI * ( hue / 360 );
+          const a = chroma * Math.cos( h )
+          const b = chroma * Math.sin( h )
+          return oklab( lightness, a, b );
+    }
+    function rgbClampRound( v ){ return Math.min( Math.max( 0, Math.round( v ) ), 255 ); }
+    function gamma( x ){ return (x >= 0.0031308 ? 1.055 * Math.pow(x, 1 / 2.4) - 0.055 : 12.92 * x); }
+    */
+
     // #endregion ////////////////////////////////////////////////////////
 }
 
