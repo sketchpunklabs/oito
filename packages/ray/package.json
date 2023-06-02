@@ -1,0 +1,13 @@
+{
+  "name": "@oito/ray",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.ts",
+  "scripts": {
+    "build"   : "tsc --build",
+    "esbuild"    : "node ./es_build.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

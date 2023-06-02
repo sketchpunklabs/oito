@@ -31,6 +31,8 @@ export default class Maths{
 
     static norm( min: number, max: number, v: number ): number { return (v-min) / (max-min); }
 
+    static baseLog( base:number, val:number ): number{ return Math.log( val ) / Math.log( base ); }
+
     /** Modulas that handles Negatives
      * @example
      * Maths.mod( -1, 5 ) = 4 */
@@ -38,6 +40,11 @@ export default class Maths{
         const v = a % b;
         return ( v < 0 )? b + v : v;
     }
+
+    // Non-negative remainder, -17 % 5 = -2, -17 emod 5 = 3
+    // It basicly goes backward in whole numbers when dealing with
+    // negatives, its like the other mod without the need for the condition
+    static euclideanMod( a: number, b: number ){ return ( ( a % b ) + b ) % b; }
 
     static asinc( x0: number ) : number{
         let   x  = 6 * ( 1-x0 );
@@ -260,6 +267,81 @@ export default class Maths{
         out[2] = vecCenter[2] + xRadius * cos * xAxis[2] + yRadius * sin * yAxis[2];
         return out;
     }
+
+    function lineIntersection( a0: ConstVec2, a1: ConstVec2, b0: ConstVec2, b1: ConstVec2, out:TVec2 ): boolean{
+        const denom = (b1[1] - b0[1]) * (a1[0] - a0[0]) - (b1[0] - b0[0]) * (a1[1] - a0[1]);
+        
+        // Lines are parallel-ish
+        if( denom === 0 ) return false;
+    
+        const ua = ((b1[0] - b0[0]) * (a0[1] - b0[1]) - (b1[1] - b0[1]) * (a0[0] - b0[0])) / denom;
+        const ub = ((a1[0] - a0[0]) * (a0[1] - b0[1]) - (a1[1] - a0[1]) * (a0[0] - b0[0])) / denom;
+
+        if( ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1 ){
+        out[0] = a0[0] + ua * (a1[0] - a0[0]);
+        out[1] = a0[1] + ua * (a1[1] - a0[1]);
+        return true;
+        }
+    
+        return false; // Lines do not intersect
+    }
+
+    function isPointOnSegment(
+        point: Vector3,
+        segmentStart: Vector3,
+        segmentEnd: Vector3,
+        ): boolean {
+        const distanceStartToPoint = segmentStart.distanceTo(point)
+        const distanceEndToPoint = segmentEnd.distanceTo(point)
+        const segmentLength = segmentStart.distanceTo(segmentEnd)
+        const epsilon = DELTA // A small value to account for floating-point errors
+        return (
+            Math.abs(distanceStartToPoint + distanceEndToPoint - segmentLength) <
+            epsilon &&
+            distanceStartToPoint < segmentLength + epsilon &&
+            distanceEndToPoint < segmentLength + epsilon
+        )
+    }
+
+    // Intersection from two points & directions
+    export function intersectLines(
+        x1: number,
+        y1: number,
+        dx1: number,
+        dy1: number,
+        x2: number,
+        y2: number,
+        dx2: number,
+        dy2: number,
+        ) {
+        let d = dx1 * dy2 - dy1 * dx2
+        if (d == 0) return null
+
+        let t2 = (dy1 * (x2 - x1) - dx1 * (y2 - y1)) / d
+        let t1 = dx1 !== 0 ? (x2 - x1 + dx2 * t2) / dx1 : (y2 - y1 + dy2 * t2) / dy1
+
+        return new Vector3(t1, t2, 0)
+    }
+
+    export function distance2line(
+        x1: number,
+        y1: number,
+        dx1: number,
+        dy1: number,
+        x0: number,
+        y0: number,
+        ): number {
+        return (
+            (dx1 * y0 - dy1 * x0 + (y1 + dy1) * x1 - (x1 + dx1) * y1) /
+            Math.sqrt(dx1 * dx1 + dy1 * dy1)
+        )
+    }
+
+    // Function to check if a point is on the left side of a line
+    function isLeft(p0, p1, p2) {
+        return ((p1.x - p0.x) * (p2.y - p0.y) - (p2.x - p0.x) * (p1.y - p0.y)) > 0;
+    }
+
     */
     //#endregion
 }

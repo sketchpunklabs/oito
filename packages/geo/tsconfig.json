@@ -1,14 +1,16 @@
 {
   "extends"           : "../../tsconfig.json",
-  "include"           : [ "src/**/*" ],
-  "exclude"           : [ "**/*.test.ts", "node_modules" ],
+  "include"           : [ "src/**/*", "../types/*" ],
   "compilerOptions"   : {
       "rootDir"               : "src",
       "outDir"                : "./build",
       "tsBuildInfoFile"       : "./build/tsconfig.tsbuildinfo",
+      "emitDeclarationOnly"   : false,
       "composite"             : true,
   },
 
   "references": [
+    { "path": "../core" },
+    { "path": "../oop" },
   ],
 }

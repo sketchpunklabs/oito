@@ -1,6 +1,6 @@
 {
   "extends"           : "../../tsconfig.json",
-  "include"           : [ "src/**/*" ],
+  "include"           : [ "src/**/*", "../types/*"],
   "exclude"           : [ "**/*.test.ts", "node_modules" ],
   "compilerOptions"   : {
       "rootDir"               : "src",
@@ -10,5 +10,6 @@
   },
 
   "references": [
+    { "path": "../core" }
   ],
 }

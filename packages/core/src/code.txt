@@ -1,0 +1,167 @@
+https://github.com/StrandedKitty/streets-gl/blob/dev/src/lib/math/MathUtils.ts
+
+public static shortestAngleDistance(a0: number, a1: number): number {
+    const max = Math.PI * 2;
+    const da = (a1 - a0) % max;
+    return 2 * da % max - da;
+}
+
+public static lerpAngle(a0: number, a1: number, t: number): number {
+    return a0 + this.shortestAngleDistance(a0, a1) * t;
+}
+
+public static normalizeAngle(angle: number): number {
+    return (angle %= 2 * Math.PI) >= 0 ? angle : (angle + 2 * Math.PI);
+}
+
+public static polarToCartesian(azimuth: number, altitude: number): Vec3 {
+    return new Vec3(
+        Math.cos(altitude) * Math.cos(azimuth),
+        Math.sin(altitude),
+        Math.cos(altitude) * Math.sin(azimuth)
+    )
+}
+
+public static cartesianToPolar(position: Vec3): [number, number] {
+    const lon = Math.atan2(position.x, -position.z) + Math.PI / 2;
+    const length = Math.sqrt(position.x * position.x + position.z * position.z);
+    const lat = Math.atan2(position.y, length);
+
+    return [lat, lon];
+}
+
+public static degrees2meters(lat: number, lon: number): Vec2 {
+    const z = lon * 20037508.34 / 180;
+    const x = Math.log(Math.tan((90 + lat) * Math.PI / 360)) * 20037508.34 / Math.PI;
+    return new Vec2(x, z);
+}
+
+public static meters2degrees(x: number, z: number): {lat: number; lon: number} {
+    const lon = z * 180 / 20037508.34;
+    const lat = Math.atan(Math.exp(x * Math.PI / 20037508.34)) * 360 / Math.PI - 90;
+    return {lat, lon};
+}
+
+public static degrees2tile(lat: number, lon: number, zoom = 16): Vec2 {
+    const x = (lon + 180) / 360 * (1 << zoom);
+    const y = (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * (1 << zoom);
+    return new Vec2(x, y);
+}
+
+public static tile2degrees(x: number, y: number, zoom = 16): {lat: number; lon: number} {
+    const n = Math.PI - 2 * Math.PI * y / (1 << zoom);
+    const lat = 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+    const lon = x / (1 << zoom) * 360 - 180;
+    return {lat, lon};
+}
+
+public static meters2tile(x: number, z: number, zoom = 16): Vec2 {
+    const rx = (z + 20037508.34) / (2 * 20037508.34) * (1 << zoom);
+    const ry = (1 - (x + 20037508.34) / (2 * 20037508.34)) * (1 << zoom);
+    return new Vec2(rx, ry);
+}
+
+public static tile2meters(x: number, y: number, zoom = 16): Vec2 {
+    const rz = (2 * 20037508.34 * x) / (1 << zoom) - 20037508.34;
+    const rx = 20037508.34 - (2 * 20037508.34 * y) / (1 << zoom);
+    return new Vec2(rx, rz);
+}
+
+public static getTileSizeInMeters(zoom: number): number {
+    return 40075016.68 / (1 << zoom);
+}
+
+public static orderConvexPolygonPoints(points: [number, number][]): [number, number][] {
+		let mX = 0;
+		let mY = 0;
+
+		for (const point of points) {
+			mX += point[0];
+			mY += point[1];
+		}
+
+		mX /= points.length;
+		mY /= points.length;
+
+		const atanValues: Map<[number, number], number> = new Map();
+
+		for (const point of points) {
+			atanValues.set(point, Math.atan2(point[1] - mY, point[0] - mX));
+		}
+
+		points.sort((a, b) => {
+			return atanValues.get(a) - atanValues.get(b);
+		});
+
+		return points;
+	}
+
+	public static getPolygonCentroid(points: Vec2[]): Vec2 {
+		//Correction for very small polygons:
+		const x0 = points[0].x, y0 = points[0].y;
+
+		let x = 0, y = 0, twiceArea = 0;
+		let prev = points[points.length - 1];
+
+		for (const next of points) {
+			const x1 = prev.x - x0, y1 = prev.y - y0,
+				x2 = next.x - x0, y2 = next.y - y0,
+				a = x1 * y2 - x2 * y1;
+
+			twiceArea += a;
+			x += (x1 + x2) * a;
+			y += (y1 + y2) * a;
+
+			prev = next;
+		}
+
+		const factor = 3 * twiceArea;  // 6 * twiceArea/2
+		x /= factor;
+		y /= factor;
+
+		return new Vec2(x + x0, y + y0);
+	}
+
+    	public static isPointInsidePolygon(point: Vec2, vs: Vec2[]): boolean {
+		// https://github.com/substack/point-in-polygon
+
+		const {x, y} = point;
+
+		let inside = false;
+		for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+			const xi = vs[i].x, yi = vs[i].y;
+			const xj = vs[j].x, yj = vs[j].y;
+
+			const intersect = ((yi > y) != (yj > y))
+				&& (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+			if (intersect) inside = !inside;
+		}
+
+		return inside;
+	}
+
+	public static getPolygonAreaSigned(points: Vec2[]): number {
+		let area = 0;
+		let prev = points[points.length - 1];
+
+		for (const next of points) {
+			area += prev.x * next.y - next.x * prev.y;
+			prev = next;
+		}
+
+		return area / 2;
+	}
+
+	public static getPointProgressAlongLineSegment(start: Vec2, end: Vec2, point: Vec2, clamp: boolean = true): number {
+		const dx = end.x - start.x;
+		const dy = end.y - start.y;
+		const lengthSquared = dx * dx + dy * dy;
+		const dotProduct = ((point.x - start.x) * dx + (point.y - start.y) * dy);
+		const progress = dotProduct / lengthSquared;
+
+		if (!clamp) {
+			return progress;
+		}
+
+		return MathUtils.clamp(progress, 0, 1);
+	}

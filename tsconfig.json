@@ -1,9 +1,11 @@
 {
     "files": [],
-    
     "references": [
         { "path": "packages/core" },
         { "path": "packages/fn" },
+        { "path": "packages/oop" },
+        { "path": "packages/geo" },
+        { "path": "packages/ray" }
     ],
 
     "compilerOptions": {
@@ -38,9 +40,13 @@
         "paths": {
             "@oito/core"    : [ "./packages/core" ],
             "@oito/fn"      : [ "./packages/fn" ],
+            "@oito/oop"     : [ "./packages/oop" ],
+            "@oito/geo"     : [ "./packages/geo" ],
+            "@oito/ray"     : [ "./packages/ray" ]
         },                                      /* Specify a set of entries that re-map imports to additional lookup locations. */
+        
         // "rootDirs": [],                                   /* Allow multiple folders to be treated as one when resolving modules. */
-        // "typeRoots": [],                                  /* Specify multiple folders that act like `./node_modules/@types`. */
+        "typeRoots": [ "./packages/types/*" ],                                  /* Specify multiple folders that act like `./node_modules/@types`. */
         // "types": [],                                      /* Specify type package names to be included without being referenced in a source file. */
         // "allowUmdGlobalAccess": true,                     /* Allow accessing UMD globals from modules. */
         "resolveJsonModule": true,                        /* Enable importing .json files */
