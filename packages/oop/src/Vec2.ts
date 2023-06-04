@@ -85,15 +85,11 @@ export default class Vec2 extends Array< number >{
     }
 
     angle( v ?: ConstVec2 ): number{
-		if(v){
-			return Math.acos( Vec2.dot( this, v ) / ( this.len() * Vec2.len( v ) ) );
-
-			//var x = v[0] - this[0],
-			//	y = v[1] - this[1];
-			//return Math.atan2(y, x);
-		}
-		return Math.atan2( this[1], this[0] );
-	}
+        return ( v )
+            // ? Math.acos( Vec2.dot( this, v ) / ( this.len() * Vec2.len( v ) ) )
+            ? Math.atan2( v[1] * this[0] - v[0] * this[1],  v[0] * this[0] + v[1] * this[1] )
+            : Math.atan2( this[1], this[0] );
+    }
 
 	setLen( len: number ): this{ return this.norm().scale( len ); }
 	len(): number { return Math.sqrt( this[0]*this[0] + this[1]*this[1] ); }
@@ -202,6 +198,13 @@ export default class Vec2 extends Array< number >{
     scale( v: number ): this{ this[0] *= v; this[1] *= v; return this; }
     divScale( v: number ): this{ this[0] /= v; this[1] /= v; return this; }
 
+    scaleThenAdd( scale: number, a: ConstVec2, b: ConstVec2 ): this{
+        this[0] = a[0] * scale + b[0];
+        this[1] = a[1] * scale + b[1];
+        this[2] = a[2] * scale + b[2];
+        return this;
+    }
+
     floor(): this{
         this[0] = Math.floor( this[0] );
         this[1] = Math.floor( this[1] );
@@ -298,6 +301,9 @@ export default class Vec2 extends Array< number >{
     static len( v0: ConstVec2 ): number{ return Math.sqrt( v0[0]**2 + v0[1]**2 ); }
     static lenSqr( v0: ConstVec2 ): number{ return v0[0]**2 + v0[1]**2; }
 
+    static dist( a: ConstVec3, b: ConstVec3 ): number{ return Math.sqrt( (a[ 0 ]-b[ 0 ] ) ** 2 + (a[ 1 ]-b[ 1 ]) ** 2 ); }
+    static distSqr( a: ConstVec3, b: ConstVec3 ): number{ return (a[ 0 ]-b[ 0 ]) ** 2 + (a[ 1 ]-b[ 1 ]) ** 2; }
+
 	static dot( a: ConstVec2, b: ConstVec2 ): number{ return a[0] * b[0] + a[1] * b[1]; }
 	static det( a: ConstVec2, b: ConstVec2 ): number{ return a[0] * b[1] - a[1] * b[0]; } // "cross product" / determinant also = len(a)*len(b) * sin( angle );
 
@@ -352,7 +358,8 @@ export default class Vec2 extends Array< number >{
 	}
 
     /** Angle from one vector to another */
-    static angle( a: ConstVec2, b: ConstVec2 ): number{
+    static angleTo( a: ConstVec2, b: ConstVec2 ): number{
+        // return Math.acos( a[0] * b[0] + a[1] * b[1] ); Calcs the angle but not right sign from A to B sometimes.
         return Math.atan2( b[1] * a[0] - b[0] * a[1],  b[0] * a[0] + b[1] * a[1] );
     }
 

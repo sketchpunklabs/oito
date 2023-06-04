@@ -28,8 +28,8 @@ window.addEventListener( 'load', async _=>{
         Debug.pnt.add( p, 0x00ff00, 3 );
     }
 
-    for( let e of poly.iterVec3Edges() ){
-        Debug.ln.add( e.a, e.b, 0x00ff00 );
+    for( let e of poly.iterEdges() ){
+        Debug.ln.add( e.a.toVec3(), e.b.toVec3(), 0x00ff00 );
     }
 
     // const p0 = new Vec2( -1.0, -1.0 );

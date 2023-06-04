@@ -322,6 +322,24 @@ export default class Maths{
 
         return new Vector3(t1, t2, 0)
     }
+    //https://stackoverflow.com/questions/2931573/determining-if-two-rays-intersect
+    function raysIntersection( as: TVec2, ad: TVec2, bs: TVec2, bd: TVec2, out: TVec2 ) {
+        const dx    = bs[0] - as[0];
+        const dy    = bs[1] - as[1];
+        const det   = bd[0] * ad[1] - bd[1] * ad[0];
+
+        if( det != 0 ){ // near parallel line will yield noisy results
+            const u = ( dy * bd[0] - dx * bd[1] ) / det;
+            const v = ( dy * ad[0] - dx * ad[1] ) / det;
+            
+            if( u >= 0 && v >= 0 ){
+                out[ 0 ] = as[ 0 ] + ad[ 0 ] * u;
+                out[ 1 ] = as[ 1 ] + ad[ 1 ] * u;
+                return true;
+            }
+        }
+        return false;
+    }
 
     export function distance2line(
         x1: number,
