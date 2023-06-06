@@ -1,0 +1,14 @@
+{
+  "name": "@oito/halfedge",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.ts",
+  "scripts": {
+    "build" : "tsc --build",
+    "esbuild"  : "node ./es_build.mjs",
+    "vite_build": "vite build --config vite.build.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT"
+}

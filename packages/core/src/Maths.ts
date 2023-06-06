@@ -136,8 +136,8 @@ export default class Maths{
     static rnd( min: number, max: number ) : number{ return Math.random() * (max - min) + min; }
 
     static rndLcg( seed: number ) : ()=>number {
-        //https://stackoverflow.com/questions/521295/seeding-the-random-number-generator-in-javascript
-        //https://en.wikipedia.org/wiki/Lehmer_random_number_generator
+        // https://stackoverflow.com/questions/521295/seeding-the-random-number-generator-in-javascript
+        // https://en.wikipedia.org/wiki/Lehmer_random_number_generator
         function lcg( a: number ) : number{ return a * 48271 % 2147483647; }
 
         seed = seed ? lcg( seed ) : lcg( Math.random() );
@@ -268,23 +268,6 @@ export default class Maths{
         return out;
     }
 
-    function lineIntersection( a0: ConstVec2, a1: ConstVec2, b0: ConstVec2, b1: ConstVec2, out:TVec2 ): boolean{
-        const denom = (b1[1] - b0[1]) * (a1[0] - a0[0]) - (b1[0] - b0[0]) * (a1[1] - a0[1]);
-        
-        // Lines are parallel-ish
-        if( denom === 0 ) return false;
-    
-        const ua = ((b1[0] - b0[0]) * (a0[1] - b0[1]) - (b1[1] - b0[1]) * (a0[0] - b0[0])) / denom;
-        const ub = ((a1[0] - a0[0]) * (a0[1] - b0[1]) - (a1[1] - a0[1]) * (a0[0] - b0[0])) / denom;
-
-        if( ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1 ){
-        out[0] = a0[0] + ua * (a1[0] - a0[0]);
-        out[1] = a0[1] + ua * (a1[1] - a0[1]);
-        return true;
-        }
-    
-        return false; // Lines do not intersect
-    }
 
     function isPointOnSegment(
         point: Vector3,
@@ -321,24 +304,6 @@ export default class Maths{
         let t1 = dx1 !== 0 ? (x2 - x1 + dx2 * t2) / dx1 : (y2 - y1 + dy2 * t2) / dy1
 
         return new Vector3(t1, t2, 0)
-    }
-    //https://stackoverflow.com/questions/2931573/determining-if-two-rays-intersect
-    function raysIntersection( as: TVec2, ad: TVec2, bs: TVec2, bd: TVec2, out: TVec2 ) {
-        const dx    = bs[0] - as[0];
-        const dy    = bs[1] - as[1];
-        const det   = bd[0] * ad[1] - bd[1] * ad[0];
-
-        if( det != 0 ){ // near parallel line will yield noisy results
-            const u = ( dy * bd[0] - dx * bd[1] ) / det;
-            const v = ( dy * ad[0] - dx * ad[1] ) / det;
-            
-            if( u >= 0 && v >= 0 ){
-                out[ 0 ] = as[ 0 ] + ad[ 0 ] * u;
-                out[ 1 ] = as[ 1 ] + ad[ 1 ] * u;
-                return true;
-            }
-        }
-        return false;
     }
 
     export function distance2line(

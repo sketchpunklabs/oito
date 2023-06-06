@@ -17,6 +17,9 @@ export default class Vec2 extends Array< number >{
         }else if( typeof v === "number" ){
             this[ 0 ] = v;
             this[ 1 ] = v;
+        }else{
+            this[ 0 ] = 0;
+            this[ 1 ] = 0;
         }
     }
     // #endregion
@@ -24,7 +27,7 @@ export default class Vec2 extends Array< number >{
     // #region SETTERS / GETTERS
 
     /** Set the vector components */
-    xy( x: number ) : Vec2     // Great for using Vec3 for scaling
+    xy( x: number ) : this     // Great for using Vec3 for scaling
     xy( x: number, y: number ) : this
     xy( x: number, y?: number ) : this {
         if( y != undefined ){
@@ -69,11 +72,11 @@ export default class Vec2 extends Array< number >{
     /** Test if all components equal zero */
     isZero(): boolean { return ( this[ 0 ] == 0 && this[ 1 ] == 0 ); }
 
-	/** When values are very small, like less then 0.000001, just make it zero.*/
-	nearZero( x=1e-6, y=1e-6 ): this{
-		if( Math.abs( this[0] ) <= x ) this[0] = 0;
-		if( Math.abs( this[1] ) <= y ) this[1] = 0;
-		return this;
+    /** When values are very small, like less then 0.000001, just make it zero.*/
+    nearZero( x=1e-6, y=1e-6 ): this{
+        if( Math.abs( this[0] ) <= x ) this[0] = 0;
+        if( Math.abs( this[1] ) <= y ) this[1] = 0;
+        return this;
     }
 
     /** Generate a random vector. Can choose per axis range */
@@ -91,14 +94,14 @@ export default class Vec2 extends Array< number >{
             : Math.atan2( this[1], this[0] );
     }
 
-	setLen( len: number ): this{ return this.norm().scale( len ); }
-	len(): number { return Math.sqrt( this[0]*this[0] + this[1]*this[1] ); }
-	lenSqr(): number{ return this[0]*this[0] + this[1]*this[1]; }
+    setLen( len: number ): this{ return this.norm().scale( len ); }
+    len(): number { return Math.sqrt( this[0]*this[0] + this[1]*this[1] ); }
+    lenSqr(): number{ return this[0]*this[0] + this[1]*this[1]; }
 
-    toVec3( isYUp:boolean = true ): TVec3{
+    toVec3( isYUp: boolean = true, n: number = 0 ): TVec3{
         const v = [ this[0], 0, 0 ];
-        if( isYUp ){    v[1] = 0;          v[2] = this[1]; }
-        else{           v[1] = this[1];    v[2] = 0; }
+        if( isYUp ){    v[1] = n;          v[2] = this[1]; }
+        else{           v[1] = this[1];    v[2] = n; }
 
         return v;
     }
@@ -107,33 +110,33 @@ export default class Vec2 extends Array< number >{
 
     // #region FROM SETTERS / OPERATORS
     fromAngleLen( ang: number, len: number ): this{
-		this[0] = len * Math.cos( ang );
-		this[1] = len * Math.sin( ang );
-		return this;
-	}
+        this[0] = len * Math.cos( ang );
+        this[1] = len * Math.sin( ang );
+        return this;
+    }
 
-	fromAdd( a: ConstVec2, b: ConstVec2 ): this{ this[0] = a[0] + b[0]; this[1] = a[1] + b[1]; return this; }
-	fromSub( a: ConstVec2, b: ConstVec2 ): this{ this[0] = a[0] - b[0]; this[1] = a[1] - b[1]; return this; }
+    fromAdd( a: ConstVec2, b: ConstVec2 ): this{ this[0] = a[0] + b[0]; this[1] = a[1] + b[1]; return this; }
+    fromSub( a: ConstVec2, b: ConstVec2 ): this{ this[0] = a[0] - b[0]; this[1] = a[1] - b[1]; return this; }
     fromMul( a: ConstVec2, b: ConstVec2 ): this{ this[0] = a[0] * b[0]; this[1] = a[1] * b[1]; return this; }
-	fromScale( a: ConstVec2, s: number ): this{ this[0] = a[0] * s; this[1] = a[1] * s; return this; }
-	fromLerp( a: ConstVec2, b: ConstVec2, t: number ): this{
-		const tt = 1 - t;
-		this[0] = a[0] * tt + b[0] * t;
-		this[1] = a[1] * tt + b[1] * t;
-		return this;
-	}
+    fromScale( a: ConstVec2, s: number ): this{ this[0] = a[0] * s; this[1] = a[1] * s; return this; }
+    fromLerp( a: ConstVec2, b: ConstVec2, t: number = 0.5 ): this{
+        const tt = 1 - t;
+        this[0] = a[0] * tt + b[0] * t;
+        this[1] = a[1] * tt + b[1] * t;
+        return this;
+    }
 
-	fromMax( a: ConstVec2, b: ConstVec2 ): this{
-		this[ 0 ] = Math.max( a[ 0 ], b[ 0 ] );
-		this[ 1 ] = Math.max( a[ 1 ], b[ 1 ] );
-		return this
-	}
+    fromMax( a: ConstVec2, b: ConstVec2 ): this{
+        this[ 0 ] = Math.max( a[ 0 ], b[ 0 ] );
+        this[ 1 ] = Math.max( a[ 1 ], b[ 1 ] );
+        return this
+    }
 
-	fromMin( a: ConstVec2, b: ConstVec2 ): this{
-		this[ 0 ] = Math.min( a[ 0 ], b[ 0 ] );
-		this[ 1 ] = Math.min( a[ 1 ], b[ 1 ] );
-		return this
-	}
+    fromMin( a: ConstVec2, b: ConstVec2 ): this{
+        this[ 0 ] = Math.min( a[ 0 ], b[ 0 ] );
+        this[ 1 ] = Math.min( a[ 1 ], b[ 1 ] );
+        return this
+    }
 
     fromFloor( v: ConstVec2 ): this{
         this[0] = Math.floor( v[0] );
@@ -141,11 +144,11 @@ export default class Vec2 extends Array< number >{
         return this;
     }
 
-	fromFract( v: ConstVec2 ): this{
-		this[0] = v[0] - Math.floor( v[0] );
-		this[1] = v[1] - Math.floor( v[1] );
-		return this;
-	}
+    fromFract( v: ConstVec2 ): this{
+        this[0] = v[0] - Math.floor( v[0] );
+        this[1] = v[1] - Math.floor( v[1] );
+        return this;
+    }
 
     fromNegate( a: ConstVec2 ) : this {
         this[ 0 ] = -a[ 0 ]; 
@@ -156,6 +159,17 @@ export default class Vec2 extends Array< number >{
     fromInvert( a: ConstVec2 ) : this {
         this[0] = ( a[0] != 0 )? 1 / a[0] : 0;
         this[1] = ( a[1] != 0 )? 1 / a[1] : 0;
+        return this;
+    }
+
+    fromLineProjecton( from: ConstVec2, to: ConstVec2 ): this{
+        // Modified from https://github.com/Unity-Technologies/UnityCsReference/blob/master/Runtime/Export/Math/Vector3.cs#L265
+        // dot( a, b ) / dot( b, b ) * b
+        const denom = Vec2.dot( to, to );
+        if( denom < 0.000001 ) return this;
+    
+        const scl= Vec2.dot( from, to ) / denom;
+        this.fromScale( to, scl ); //xy( to[0] * scl, to[1] * scl );
         return this;
     }
 
@@ -274,14 +288,14 @@ export default class Vec2 extends Array< number >{
         return this;
     }
 
-    perpCW(): this{	     // Perpendicular ClockWise
+    rotP90(): this{	     // Perpendicular ClockWise
         const x   = this[ 0 ];
         this[ 0 ] = this[ 1 ];
         this[ 1 ] = -x;
         return this;
     }
 
-    perpCCW(): this{	// Perpendicular Counter-ClockWise
+    rotN90(): this{	// Perpendicular Counter-ClockWise
         const x   = this[ 0 ];
         this[ 0 ] = -this[ 1 ];
         this[ 1 ] = x;
@@ -291,9 +305,9 @@ export default class Vec2 extends Array< number >{
     // #endregion
 
     // #region STATIC OPERATIONS
-	static add( a: ConstVec2, b: ConstVec2 ): Vec2{ return new Vec2().fromAdd( a, b ); }
-	static sub( a: ConstVec2, b: ConstVec2 ): Vec2{ return new Vec2().fromSub( a, b ); }
-	static scale( v: ConstVec2, s: number): Vec2 { return new Vec2().fromScale( v, s ); }
+    static add( a: ConstVec2, b: ConstVec2 ): Vec2{ return new Vec2().fromAdd( a, b ); }
+    static sub( a: ConstVec2, b: ConstVec2 ): Vec2{ return new Vec2().fromSub( a, b ); }
+    static scale( v: ConstVec2, s: number): Vec2 { return new Vec2().fromScale( v, s ); }
     static floor( v: ConstVec2 ): Vec2{ return new Vec2().fromFloor( v ); }
     static fract( v: ConstVec2 ): Vec2{ return new Vec2().fromFract( v ); }
     static lerp( v0: ConstVec2, v1: ConstVec2, t: number ): Vec2{ return new Vec2().fromLerp( v0, v1, t ); }
@@ -304,33 +318,35 @@ export default class Vec2 extends Array< number >{
     static dist( a: ConstVec3, b: ConstVec3 ): number{ return Math.sqrt( (a[ 0 ]-b[ 0 ] ) ** 2 + (a[ 1 ]-b[ 1 ]) ** 2 ); }
     static distSqr( a: ConstVec3, b: ConstVec3 ): number{ return (a[ 0 ]-b[ 0 ]) ** 2 + (a[ 1 ]-b[ 1 ]) ** 2; }
 
-	static dot( a: ConstVec2, b: ConstVec2 ): number{ return a[0] * b[0] + a[1] * b[1]; }
-	static det( a: ConstVec2, b: ConstVec2 ): number{ return a[0] * b[1] - a[1] * b[0]; } // "cross product" / determinant also = len(a)*len(b) * sin( angle );
+    static dot( a: ConstVec2, b: ConstVec2 ): number{ return a[0] * b[0] + a[1] * b[1]; }
+    static det( a: ConstVec2, b: ConstVec2 ): number{ return a[0] * b[1] - a[1] * b[0]; } // "cross product" / determinant also = len(a)*len(b) * sin( angle );
 
-	static project( from: ConstVec2, to: ConstVec2 ) : Vec2{
-		// Modified from https://github.com/Unity-Technologies/UnityCsReference/blob/master/Runtime/Export/Math/Vector3.cs#L265
-		// dot( a, b ) / dot( b, b ) * b
-		const out   = new Vec2();
-		const denom = Vec2.dot( to, to );
-		if( denom < 0.000001 ) return out;
-	
-		const scl	= Vec2.dot( from, to ) / denom;
-		return out.fromScale( to, scl ); //xy( to[0] * scl, to[1] * scl );
-	}
+    static project( from: ConstVec2, to: ConstVec2 ) : Vec2{
+        // Modified from https://github.com/Unity-Technologies/UnityCsReference/blob/master/Runtime/Export/Math/Vector3.cs#L265
+        // dot( a, b ) / dot( b, b ) * b
+        const out   = new Vec2();
+        const denom = Vec2.dot( to, to );
+        if( denom < 0.000001 ) return out;
+    
+        const scl	= Vec2.dot( from, to ) / denom;
+        return out.fromScale( to, scl ); //xy( to[0] * scl, to[1] * scl );
+    }
 
-	// From FROM and TO should have the same Origin.
-	// FROM is a straight line from origin to plane. May need to do some extra projection to get this value.
-	// To is treated like a Ray from the origin.
-	static projectPlane( from: ConstVec2, to: ConstVec2, planeNorm: ConstVec2 ): Vec2{
-		const out   = new Vec2();
-		const denom = Vec2.dot( to, planeNorm );
-		if( denom < 0.000001 && denom > -0.000001 ) return out;
+    static scaleThenAdd( scale: number, a: ConstVec2, b: ConstVec2 ): Vec2{ return new Vec2().scaleThenAdd( scale, a, b ); }
 
-		const t = Vec2.dot( from, planeNorm ) / denom;
-		return out.fromScale( to, t );
-	}
+    // From FROM and TO should have the same Origin.
+    // FROM is a straight line from origin to plane. May need to do some extra projection to get this value.
+    // To is treated like a Ray from the origin.
+    static projectPlane( from: ConstVec2, to: ConstVec2, planeNorm: ConstVec2 ): Vec2{
+        const out   = new Vec2();
+        const denom = Vec2.dot( to, planeNorm );
+        if( denom < 0.000001 && denom > -0.000001 ) return out;
 
-	static rotateDeg( v: TVec2, deg: number ): Vec2{
+        const t = Vec2.dot( from, planeNorm ) / denom;
+        return out.fromScale( to, t );
+    }
+
+    static rotateDeg( v: TVec2, deg: number ): Vec2{
         const out   = new Vec2();
         const rad   = deg * Math.PI / 180,
               cos   = Math.cos( rad ),
@@ -341,21 +357,21 @@ export default class Vec2 extends Array< number >{
         out[0] = x * cos - y * sin;
         out[1] = x * sin + y * cos;
         return out;
-	}
+    }
 
-	static perpCW( v: ConstVec2 ): Vec2{	// Perpendicular ClockWise
-		const out = new Vec2();
-		out[ 0 ]  = v[ 1 ];
-		out[ 1 ]  = -v[ 0 ];
-		return out;
-	}
+    static rotP90( v: ConstVec2 ): Vec2{
+        const out = new Vec2();
+        out[ 0 ]  = v[ 1 ];
+        out[ 1 ]  = -v[ 0 ];
+        return out;
+    }
 
-	static perpCCW( v: ConstVec2 ): Vec2{	// Perpendicular Counter-ClockWise
-		const out = new Vec2();
-		out[ 0 ]  = -v[ 1 ];
-		out[ 1 ]  = v[ 0 ];
-		return out;
-	}
+    static rotN90( v: ConstVec2 ): Vec2{
+        const out = new Vec2();
+        out[ 0 ]  = -v[ 1 ];
+        out[ 1 ]  = v[ 0 ];
+        return out;
+    }
 
     /** Angle from one vector to another */
     static angleTo( a: ConstVec2, b: ConstVec2 ): number{
@@ -384,6 +400,6 @@ export default class Vec2 extends Array< number >{
         return { [Symbol.iterator](){ return { next }; } };
     }
 
-	// #endregion
+    // #endregion
 
 }

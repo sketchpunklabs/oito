@@ -94,8 +94,8 @@ function bevel( poly, radius, div ){
         pDir.fromScale( aDir, radius );     // Move radius from curr to prev pnt          
         pPos.fromAdd( b, pDir );            // Point for a perpendicular intersection
 
-        if( isLefty ) pDir.perpCCW();       // Spin direction so its now perpendicular
-        else          pDir.perpCW();
+        if( isLefty ) pDir.rotN90();       // Spin direction so its now perpendicular
+        else          pDir.rotP90();
                             
         // ------------------------------
         // Stripped down the Ray intersection fn to its bare bones

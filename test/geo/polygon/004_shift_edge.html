@@ -1,0 +1,123 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+//#region IMPORTS
+import useThreeWebGL2, { useDarkScene, useVisualDebug } from '../../_lib/useThreeWebGL2.js';
+
+import { Vec2 }      from '../../../packages/oop/src/index.ts';
+import { Polygon2D } from '../../../packages/geo/src/index.ts';
+import Line2D        from '../../../packages/geo/src/2d/Line2D.ts';
+//#endregion
+
+//#region MAIN
+let App   = useDarkScene( useThreeWebGL2() );
+let Debug = {};
+let Ref   = {};
+
+window.addEventListener( 'load', async _=>{
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Setup
+    App.sphericalLook( 0, 20, 6 );
+    Debug = await useVisualDebug( App );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    const poly = new Polygon2D();
+    // poly.addArray( [ [1,0], [1.2, -0.4], [0,-1], [-1,0], [-0.2, 0.5], [0,1] ] );
+    // poly.addArray( [ [1,0], [0,-1], [-1,0], [0,1] ] );
+    poly.addArray( [ [0.5,0], [0,-1], [-1,0], [0,1] ] );
+
+    for( let p of poly.iterVec3() ){
+        Debug.pnt.add( p, 0x00ff00, 3 );
+    }
+
+    for( let e of poly.iterEdges() ){
+        Debug.ln.add( e.a.toVec3(), e.b.toVec3(), 0x00ff00 );
+    }
+
+    // const p0 = new Vec2( -1.0, -1.0 );
+    // const p1 = new Vec2(  1.0,  1.0 );
+
+    const p0 = new Vec2( -1.0, 1.0 );
+    const p1 = new Vec2(  1.0,  -1.0 );
+
+    // const p0 = new Vec2( 0.0, 1.4 );
+    // const p1 = new Vec2( 0.0,  -1.4 );
+
+    Debug.pnt.add( p0.toVec3(), 0xffffff, 3 );
+    Debug.pnt.add( p1.toVec3(), 0xffffff, 3 );
+    Debug.ln.add( p0.toVec3(), p1.toVec3(), 0xffffff );
+
+    const [pl0, pl1] = poly.segmentCut( p0, p1 );
+
+    shiftEdge( pl0, pl0.pointCount-1 );
+    
+    // for( let e of pl0.iterEdges() ){
+    //     Debug.ln.add( e.a.toVec3( true, 0.02 ), e.b.toVec3( true, 0.02 ), 0x00ffff );
+    // }
+
+    // for( let e of pl1.iterEdges() ){
+    //     Debug.ln.add( e.a.toVec3( true, 0.4 ), e.b.toVec3( true, 0.4 ), 0xffff00 );
+    // }
+
+
+    for( const p of pl0.points ){
+        Debug.pnt.add( p.toVec3( true, 0.5 ), 0xffffff, 2, 1 );
+    }
+
+    for( let e of pl0.iterEdges() ){
+        Debug.ln.add( e.a.toVec3( true, 0.5 ), e.b.toVec3( true, 0.5 ), 0xffffff );
+    }
+
+    // for( const p of pl1.points ){
+    //     Debug.pnt.add( p.toVec3(), 0xffffff, 8, 7 );
+    // }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    App.renderLoop();
+});
+
+
+function shiftEdge( poly, eIdx, dist=0.2 ){
+    // Get the current edge & its prev + next ones
+    const ep    = poly.getEdge( eIdx - 1 );     // Prev Edge
+    const ec    = poly.getEdge( eIdx );         // Curr Edge
+    const en    = poly.getEdge( eIdx + 1 );     // Next Edge
+
+    Debug.pnt.add( ec[0].toVec3(), 0x00ffff, 3, 6 );
+    Debug.pnt.add( ec[1].toVec3(), 0x00ffff, 3, 7 );
+
+    // Compute Ray Vectors for each Edge
+    const pDir  = new Vec2().fromSub( ep[1], ep[0] ).norm();    // Prev Dir
+    const cDir  = new Vec2().fromSub( ec[1], ec[0] ).norm();    // Curr Dir
+    const nDir  = new Vec2().fromSub( en[0], en[1] ).norm();    // Next Dir Reverse
+    
+    // Moving Edge's Mid & Perpendicular Positions
+    const mPos  = new Vec2().fromLerp( ec[0], ec[1], 0.5 );
+    const pPos  = new Vec2( cDir ).scale( dist ).rotP90().add( mPos );
+    
+    Debug.pnt.add( mPos.toVec3(), 0xffff00, 3, 1 );
+    Debug.pnt.add( pPos.toVec3(), 0xffff00, 3, 1 );
+    Debug.ln.add( mPos.toVec3(), pPos.toVec3(), 0xffff00 );    
+    
+    // Intersection point on Next Edge
+    const np = new Vec2();
+    Line2D.intersectingRays( pPos, cDir, en[1], nDir, np );
+
+    Debug.ln.add( pPos.toVec3(), Vec2.scaleThenAdd( 1, cDir, pPos ).toVec3(), 0xffff00 );
+    Debug.pnt.add( np.toVec3(), 0xffff00, 4, 0 );
+    
+    // Intersection point on Previous Edge
+    const pp = new Vec2();
+    Line2D.intersectingRays( pPos, cDir.negate(), ep[0], pDir, pp );
+
+    Debug.ln.add( pPos.toVec3(), Vec2.scaleThenAdd( 1, cDir, pPos ).toVec3(), 0xffff00 );
+    Debug.pnt.add( pp.toVec3(), 0xffff00, 4, 0 );
+
+    // Update Edge's position 
+    ec[0].copy( pp );
+    ec[1].copy( np );
+}
+
+//#endregion
+</script></body></html>

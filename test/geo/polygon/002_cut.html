@@ -23,6 +23,7 @@ window.addEventListener( 'load', async _=>{
 
     const poly = new Polygon2D();
     poly.addArray( [ [1,0], [1.2, -0.4], [0,-1], [-1,0], [-0.2, 0.5], [0,1] ] );
+    // poly.addArray( [ [1,0], [0,-1], [-1,0], [0,1] ] );
 
     for( let p of poly.iterVec3() ){
         Debug.pnt.add( p, 0x00ff00, 3 );
@@ -38,9 +39,14 @@ window.addEventListener( 'load', async _=>{
     const p0 = new Vec2( -1.0, 1.0 );
     const p1 = new Vec2(  1.0,  -1.0 );
 
+    // const p0 = new Vec2( 0.0, 1.4 );
+    // const p1 = new Vec2( 0.0,  -1.4 );
+
     Debug.pnt.add( p0.toVec3(), 0x00ffff, 3 );
     Debug.pnt.add( p1.toVec3(), 0x00ffff, 3 );
     Debug.ln.add( p0.toVec3(), p1.toVec3(), 0x00ffff );
+
+    segmentCut( poly.points, p0, p1 );
 
     const [pl0, pl1] = segmentCut( poly.points, p0, p1 );
     
@@ -56,7 +62,12 @@ window.addEventListener( 'load', async _=>{
     App.renderLoop();
 });
 
+// Can only slice polygons across edges, if any point is
+// on the segment then algorithm can't handle more then 2
+// edge that intersect the segment.
 
+// May need a special case where 2 points are on the segment
+// then slice the polygon differently
 function segmentCut( pnts, p0, p1 ){
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Find all the edges that intersect the segment
@@ -78,10 +89,6 @@ function segmentCut( pnts, p0, p1 ){
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Create two polygons from the intersection slice
-
-    // TODO: Check if any of the new intersection points are super close
-    // the start or end points, use existing points instead of new points
-
     const [ a, b ]  = hits;
     const poly0     = new Polygon2D([
         a.pos,
@@ -116,12 +123,6 @@ function lineIntersection( a0, a1, b0, b1, out=[0,0] ){
     }
   
     return null; // Lines do not intersect
-}
-
-// NOT REALLY NEEDED - KEEP IT JUST INCASE :)
-// Function to check if a point is on the left side of a line
-function isLeft(p0, p1, p2) {
-  return ((p1.x - p0.x) * (p2.y - p0.y) - (p2.x - p0.x) * (p1.y - p0.y)) > 0;
 }
 
 //#endregion
