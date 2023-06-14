@@ -13,6 +13,7 @@ type Props = {
     center      : boolean,
     vertical    : boolean,
     alt         : boolean,
+    warpRadius  : number,
 };
 // #endregion
 
@@ -28,11 +29,15 @@ export default class Grid{
             alt         : false,
             center      : false,
             vertical    : false,
+            warpRadius  : 0,
         }, _props );
 
+        const verts = UtilVertices.createGrid( [], props.width, props.height, props.cols, props.rows, props.center, props.vertical );
+
+        if( props.warpRadius !== 0 ) warp( verts, props.warpRadius );
+
         return {
-            vertices : UtilVertices.createGrid( [], props.width, props.height, props.cols, props.rows, props.center, props.vertical ),
-            
+            vertices : verts,
             indices  : ( props.alt )
                 ? UtilIndices.gridAlt( [], props.cols, props.rows )
                 : UtilIndices.grid( [], props.cols, props.rows ),
@@ -44,6 +49,7 @@ export default class Grid{
 }
 
 // #region HELPERS
+
 function texcoord( out: Array<number>, xLen: number, yLen: number ){
     let x, y, yt;
     for( y=0; y <= yLen; y++ ){
@@ -53,4 +59,21 @@ function texcoord( out: Array<number>, xLen: number, yLen: number ){
 
     return out;
 }
+
+function warp( verts: Array<number>, radius: number ){
+    const fn = ( i: number ): number=>{
+        const v  = verts[ i ];               // Get Axis Value
+        let   t  = v / radius;               // Reverse Map Axis Value
+        const ts = Math.sign( t );           // SAVE Sign, important
+        t        = 1.0 - Math.abs( t );      // Invert T
+        return ( 1.0 - t**2 ) * ts * radius; // easeInQuad 
+    }
+
+    const cnt = verts.length / 3;
+    for( let i=0; i < cnt; i++ ){
+        verts[ i*3 ]     = fn( i*3 );     // x
+        verts[ i*3 + 2 ] = fn( i*3 + 2 ); // z
+    }
+}
+
 // #endregion
