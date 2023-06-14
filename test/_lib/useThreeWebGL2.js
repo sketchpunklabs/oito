@@ -72,8 +72,8 @@ export default function useThreeWebGL2( props={} ){
         stencil                 : true,
         depth                   : true,
         preserveDrawingBuffer   : props.preserverBuffer,
-        powerPreference         : ( power === '') ? default : 
-                                  ( power === 'high' ) ? 'high-performance' : 'low-power',
+        powerPreference         : ( props.power === '')      ? 'default' : 
+                                  ( props.power === 'high' ) ? 'high-performance' : 'low-power',
     };
 
     const canvas    = document.createElement( 'canvas' );

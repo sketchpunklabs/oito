@@ -680,6 +680,21 @@ export default class Vec3 extends Array< number >{
 
     static fromQuat( q: ConstVec4, v: ConstVec3=[0,0,1] ): Vec3{ return new Vec3( v ).transformQuat( q ); }
 
+    static iterBuf( buf: Array<number> | Float32Array ) : { [Symbol.iterator]() : { next:()=>{ value:Vec3, done:boolean } } } {
+        let   i       = 0;
+        const result  = { value:new Vec3(), done:false },
+              len     = buf.length,
+              next    = ()=>{
+                if( i >= len ) result.done = true;
+                else{
+                    result.value.fromBuf( buf, i );
+                    i += 3;
+                }
+                return result;
+              };
+        return { [Symbol.iterator](){ return { next }; } };
+    }
+
     /*
     static smoothDamp( cur: ConstVec3, tar: ConstVec3, vel: TVec3, dt: number, smoothTime: number = 0.25, maxSpeed: number = Infinity ): TVec3{
         // Based on Game Programming Gems 4 Chapter 1.10

@@ -22,10 +22,10 @@ declare global{
     type ConstMat4      = Readonly< TMat4 >
 
     type TGeo           = { 
-        indices  : Array<number>,
-        vertices : Array<number>,
-        normals  : Array<number>,
-        texcoord : Array<number>,
+        vertices  : Array<number>,
+        indices  ?: Array<number>,
+        normals  ?: Array<number>,
+        texcoord ?: Array<number>,
     };
     
 }
