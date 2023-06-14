@@ -25,13 +25,13 @@ export default class Util{
             1 
         ));
 
-        if( p.normal ) geo.setAttribute( 'normal', new THREE.BufferAttribute( 
-            ( p.normal instanceof Float32Array )? p.normal : new Float32Array( p.normal ),
+        if( p.normals ) geo.setAttribute( 'normal', new THREE.BufferAttribute( 
+            ( p.normals instanceof Float32Array )? p.normals : new Float32Array( p.normals ),
             3
         ));
 
-        if( p.uv ) geo.setAttribute( 'uv', new THREE.BufferAttribute( 
-            ( p.uv instanceof Float32Array )? p.uv : new Float32Array( p.uv ), 
+        if( p.texcoord ) geo.setAttribute( 'uv', new THREE.BufferAttribute( 
+            ( p.texcoord instanceof Float32Array )? p.texcoord : new Float32Array( p.texcoord ), 
             2
         ));
         
