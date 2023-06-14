@@ -37,7 +37,8 @@ window.addEventListener( 'load', async _=>{
     }
 
     // bendCut( poly );
-    bendCut2( poly );
+    // bendCut2( poly );
+    bendCut3( poly );
 
     // const p0 = new Vec2( -1.0, -1.0 );
     // const p1 = new Vec2(  1.0,  1.0 );
@@ -76,48 +77,6 @@ window.addEventListener( 'load', async _=>{
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     App.renderLoop();
 });
-
-
-function shiftEdge( poly, eIdx, dist=0.2 ){
-    // Get the current edge & its prev + next ones
-    const ep    = poly.getEdge( eIdx - 1 );     // Prev Edge
-    const ec    = poly.getEdge( eIdx );         // Curr Edge
-    const en    = poly.getEdge( eIdx + 1 );     // Next Edge
-
-    Debug.pnt.add( ec[0].toVec3(), 0x00ffff, 3, 6 );
-    Debug.pnt.add( ec[1].toVec3(), 0x00ffff, 3, 7 );
-
-    // Compute Ray Vectors for each Edge
-    const pDir  = new Vec2().fromSub( ep[1], ep[0] ).norm();    // Prev Dir
-    const cDir  = new Vec2().fromSub( ec[1], ec[0] ).norm();    // Curr Dir
-    const nDir  = new Vec2().fromSub( en[0], en[1] ).norm();    // Next Dir Reverse
-    
-    // Moving Edge's Mid & Perpendicular Positions
-    const mPos  = new Vec2().fromLerp( ec[0], ec[1], 0.5 );
-    const pPos  = new Vec2( cDir ).scale( dist ).rotP90().add( mPos );
-    
-    Debug.pnt.add( mPos.toVec3(), 0xffff00, 3, 1 );
-    Debug.pnt.add( pPos.toVec3(), 0xffff00, 3, 1 );
-    Debug.ln.add( mPos.toVec3(), pPos.toVec3(), 0xffff00 );    
-    
-    // Intersection point on Next Edge
-    const np = new Vec2();
-    Line2D.intersectingRays( pPos, cDir, en[1], nDir, np );
-
-    Debug.ln.add( pPos.toVec3(), Vec2.scaleThenAdd( 1, cDir, pPos ).toVec3(), 0xffff00 );
-    Debug.pnt.add( np.toVec3(), 0xffff00, 4, 0 );
-    
-    // Intersection point on Previous Edge
-    const pp = new Vec2();
-    Line2D.intersectingRays( pPos, cDir.negate(), ep[0], pDir, pp );
-
-    Debug.ln.add( pPos.toVec3(), Vec2.scaleThenAdd( 1, cDir, pPos ).toVec3(), 0xffff00 );
-    Debug.pnt.add( pp.toVec3(), 0xffff00, 4, 0 );
-
-    // Update Edge's position 
-    ec[0].copy( pp );
-    ec[1].copy( np );
-}
 
 // function bendCut( poly ){
 //     const rng  = Maths.rndLcg( 0 );
@@ -237,6 +196,61 @@ function bendCut2( poly ){
     Debug.pnt.add( bendPos.toVec3(), 0xffffff, 3, 1 );
 }
 
+function bendCut3( poly ){
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // With a starting edge compute a mid point & perpendicular dir
+    const eIdx  = 4;
+    const aEdge = poly.getEdge( eIdx );
+
+    Debug.pnt.add( aEdge[0].toVec3(), 0x00ffff, 4, 4 );
+    Debug.pnt.add( aEdge[1].toVec3(), 0x00ffff, 3, 0 );
+
+    const aMid = new Vec2().fromLerp( aEdge[0], aEdge[1] );
+    const aDir = new Vec2().fromSub( aEdge[1], aEdge[0] ).norm().rotP90();
+    Debug.pnt.add( aMid.toVec3(), 0x00ffff, 3, 1 );
+    Debug.ln.add( aMid.toVec3(), Vec2.add( aMid, aDir ).toVec3(), 0x00ffff );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Find an edge that intersects the perpendicular ray of Edge A
+    const hitPos = new Vec2();
+    const hIdx   = findIntersectedEdge( poly, aMid, aDir, hitPos, eIdx );
+    Debug.pnt.add( hitPos.toVec3(), 0xffff00, 5, 11 );
+
+    const bEdge = poly.getEdge( hIdx );
+    Debug.pnt.add( bEdge[0].toVec3(), 0xffff00, 4, 4 );
+    Debug.pnt.add( bEdge[1].toVec3(), 0xffff00, 3, 0 );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Get hit edge's perpendicular ray
+    const bDir = new Vec2().fromSub( bEdge[1], bEdge[0] ).norm().rotP90();
+    Debug.ln.add( hitPos.toVec3(), Vec2.add( hitPos, bDir ).toVec3(), 0xffff00 );
+
+    bDir.negate();
+
+    if( Math.abs( Vec2.dot( aDir, bDir ) ) >= 0.999 ){
+        console.log( 'Parallel, do straight line' );
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Create bend from starting edge then do step tests of
+    // finding the right spot on the hit endge to
+    const initScl   = 0.85;
+    const hitDist   = Vec2.dist( aMid, hitPos );
+    const bendPos   = new Vec2();
+
+    for( let i=0; i < 10; i++ ){
+        bendPos.fromScale( aDir, ( 1 - initScl / (2**i) ) * hitDist ).add( aMid );
+        Debug.pnt.add( bendPos.toVec3(), 0xffffff, 3, 1 );
+        Debug.ln.add( bendPos.toVec3(), Vec2.add( bendPos, bDir ).toVec3(), 0xffffff );
+
+        if( Line2D.intersectingRaySegment( bendPos, bDir, bEdge[0], bEdge[1], hitPos ) ){
+            console.log( 'hit' );
+            Debug.pnt.add( hitPos.toVec3(), 0xffffff, 5, 11 );
+            break;
+        }
+    }
+}
+
 function findIntersectedEdge( poly, ro, rd, hPos, ignoreIdx=null ){
     const pnts  = poly.points;
     const cnt   = pnts.length;
@@ -252,7 +266,6 @@ function findIntersectedEdge( poly, ro, rd, hPos, ignoreIdx=null ){
     }
     return -1;
 }
-
 
 
 //#endregion

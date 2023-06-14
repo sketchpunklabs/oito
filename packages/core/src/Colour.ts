@@ -15,7 +15,7 @@ const COLORS : { [key:string]: number } = {
 };
 // #endregion
 
-class Colour extends Float32Array{
+export default class Colour extends Float32Array{
     // #region MAIN
     constructor()
     constructor( c: string )
@@ -32,7 +32,7 @@ class Colour extends Float32Array{
             }
         }
     }
-    // #endregion ////////////////////////////////////////////////////////
+    // #endregion
 
     // #region GETTERS / SETTERS
     get r() : number{ return this[ 0 ]; }   set r( v: number ){ this[ 0 ] = v; }
@@ -369,5 +369,3 @@ function hexToHsv(hex) {
     return rgbToHsv(...hex.match(/.{2}/g).map(v => parseInt(v, 16)));
 }
 */
-
-export default Colour;

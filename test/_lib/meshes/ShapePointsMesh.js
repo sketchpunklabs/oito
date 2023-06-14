@@ -253,7 +253,6 @@ function newShapePointsMeshMaterial(){
         return smoothstep( 0.0, 0.0 - f, dist );
     }
     
-
     void main(){
         float alpha = 1.0;
 

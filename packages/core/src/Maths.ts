@@ -203,6 +203,11 @@ export default class Maths{
         return 1 - Math.abs( t - 1 );
     }
 
+    [MethodImpl( INLINE )] public static float TriangleWave( float t, float period = 1f ) {
+        float x = t / period;
+        return 1f - Abs( 2 * ( x - Floor( x ) ) - 1 );
+    }
+
     //static cheap_parabola( t ) { return 1.0 - Math.abs( t * 2.0 - 1.0 ); }
 
     // Triangle Wave :: y = abs((x++ % 6) - 3);

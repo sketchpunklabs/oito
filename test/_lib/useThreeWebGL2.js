@@ -58,24 +58,34 @@ export async function useVisualDebug( tjs ){
 // #region MAIN
 export default function useThreeWebGL2( props={} ){
     props = Object.assign( {
-        colorMode : false,
-        shadows   : false,
+        colorMode       : false,
+        shadows         : false,
+        preserverBuffer : false,
+        power           : '',
     }, props );
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // RENDERER
     const options = { 
-        antialias : true, 
-        alpha     : true,
+        antialias               : true, 
+        alpha                   : true,
+        stencil                 : true,
+        depth                   : true,
+        preserveDrawingBuffer   : props.preserverBuffer,
+        powerPreference         : ( power === '') ? default : 
+                                  ( power === 'high' ) ? 'high-performance' : 'low-power',
     };
 
     const canvas    = document.createElement( 'canvas' );
     options.canvas  = canvas;
-    options.context = canvas.getContext( 'webgl2' );
+    options.context = canvas.getContext( 'webgl2',  { preserveDrawingBuffer: props.preserverBuffer } );
 
     const renderer = new THREE.WebGLRenderer( options );
     renderer.setPixelRatio( window.devicePixelRatio );
     renderer.setClearColor( 0x3a3a3a, 1 );
+    // renderer.autoClearColor = false;
+    // renderer.autoClearDepth = false;
+    // Manual clearing : r.clearColor(); r.clearDepth();
 
     if( props.colorMode ){
         // React-Fiber changes the default settings which causes big issues trying to map colors 1:1
@@ -84,7 +94,7 @@ export default function useThreeWebGL2( props={} ){
 
         renderer.outputEncoding = THREE.sRGBEncoding;           // Turns on sRGB Encoding & Gamma Correction :: THREE.LinearEncoding
         renderer.toneMapping    = THREE.ACESFilmicToneMapping;  // Try to make it close to HDR :: THREE.NoToneMapping
-        THREE.ColorManagement.legacyMode = false;               // Turns old 3JS's old color manager  :: true
+        THREE.ColorManagement.legacyMode = false;               // Turns off 3JS's old color manager  :: true
     }
 
     if( props.shadows ){

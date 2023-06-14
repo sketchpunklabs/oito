@@ -17,7 +17,7 @@ let Ref   = {};
 window.addEventListener( 'load', async _=>{
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Setup
-    App.sphericalLook( 0, 20, 6 );
+    App.sphericalLook( 0, 90, 5 );
     Debug = await useVisualDebug( App );
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -25,13 +25,16 @@ window.addEventListener( 'load', async _=>{
     const poly = new Polygon2D();
     poly.addArray( [ [1,0], [1.2, -0.4], [0,-1], [-1,0], [-0.1, 0.5], [0,1] ] );
     // poly.addArray( [ [0.4,0], [0,-1], [-1,0], [0,1] ] );
-
+    // poly.addArray( [[-0.18715486291198297,0.5321128427200426],[-0.18685411607411112,0.5328647098147221],[0.034439555298876295,0.4443472412655272],[0.21818019484660525,0.26060660171779826],[0.13030330085889896,0.17272970773009202],[-0.11727991088020229,0.4203129194691934]] );
+    // poly.addArray( [[1.1102230246251565e-16,-0.5636396103067893],[0.015243267259899582,-0.5788828775666889],[0.18064146278124407,-0.909679268609378],[0,-1],[-0.21818019484660522,-0.7818198051533947]] );
+    // poly.addArray( [[-0.34591791843059433,0.4594672448803905],[-0.2373154603578939,0.4896345943450295],[-0.22826456134915085,0.4570513579135545],[0.09318019484660528,0.13560660171779837],[-0.05719669914110098,-0.014770292269907892],[-0.2745654884841309,0.20259849707312208]] );
+    // console.log( poly.points );
     
-    for( let p of poly.iterVec3() ) Debug.pnt.add( p, 0x00ff00, 2 );
+    for( let p of poly.iterVec3() ) Debug.pnt.add( p, 0x00ff00, 0.5 );
 
     for( let e of poly.iterEdges() ) Debug.ln.add( e.a.toVec3(), e.b.toVec3(), 0x00ff00 );
 
-    bevel( poly, 0.2, 6 );
+    bevel( poly, 0.05, 3 );
 
     for( let e of poly.iterEdges() ) Debug.ln.add( e.a.toVec3(), e.b.toVec3(), 0x00ffff );
 
@@ -60,6 +63,7 @@ function bevel( poly, radius, div ){
     let a, b, c, v;
     let i, k, l;
     let isLefty;
+    let aLen, cLen, rLen;
 
     for( let j=0; j < cnt; j++ ){
         // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -69,10 +73,33 @@ function bevel( poly, radius, div ){
         b = poly.points[ j ];       // Curr Pnt
         c = poly.points[ k ];       // Next Pnt
 
+        // console.log( i, j, k );
+
+        // Debug.pnt.add( a.toVec3(), 0x00ffff, 1, 0 );
+        // Debug.pnt.add( b.toVec3(), 0xffffff, 1, 0 );
+        // Debug.pnt.add( c.toVec3(), 0xffff00, 1, 0 );
+        //     console.log( a, b, c );
+        //     break;
+
+
         // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         // Compute Vectors & Angles
-        aDir.fromSub( a, b ).norm();
-        cDir.fromSub( c, b ).norm();  
+        aDir.fromSub( a, b );
+        cDir.fromSub( c, b );
+
+        aLen = aDir.len();
+        cLen = cDir.len();
+
+        rLen = ( aLen <= radius || cLen <= radius )
+            ? Math.min( aLen, cLen ) * 0.5
+            : radius;
+
+        if( rLen <= 0.001 ){ out.push( b ); continue; }
+
+        aDir.norm();
+        cDir.norm();
+
+        // console.log( aDir.len(), cDir.len(), radius );
 
         ang = Vec2.angleTo( aDir, cDir );
         if( Math.abs( ang ) >= maxRad ){ out.push( b ); continue; }
@@ -86,16 +113,23 @@ function bevel( poly, radius, div ){
 
         // isLefty = Line2D.isLeft( a, c, b ); // Seg1, SegB, Pnt
         isLefty = ((
-            ( c[0] - a[0] ) * ( b[1] - a[1] ) - 
-            ( b[0] - a[0] ) * ( c[1] - a[1] )
-        ) > 0 );
+            ( b[0] - a[0] ) * ( c[1] - a[1] ) -
+            ( b[1] - a[1] ) * ( c[0] - a[0] ) ) >= 0);
+
+        // if( i== 0 ){
+        //     Debug.pnt.add( pPos.toVec3(), 0x00ffff, 1 );
+        //     // Debug.ln.add( b.toVec3(), Vec2.add( b, mDir ).toVec3(), 0x00ffff );
+        //     Debug.ln.add( b.toVec3(), Vec2.add( b, aDir ).toVec3(), 0x00ffff );
+        //     Debug.ln.add( b.toVec3(), Vec2.add( b, cDir ).toVec3(), 0xffff00 );
+        // }
+
 
         mDir.fromAdd( aDir, cDir ).norm();  // Bi Vector
-        pDir.fromScale( aDir, radius );     // Move radius from curr to prev pnt          
+        pDir.fromScale( aDir, rLen );     // Move radius from curr to prev pnt          
         pPos.fromAdd( b, pDir );            // Point for a perpendicular intersection
 
-        if( isLefty ) pDir.rotN90();       // Spin direction so its now perpendicular
-        else          pDir.rotP90();
+        if( isLefty ) pDir.rotP90();       // Spin direction so its now perpendicular
+        else          pDir.rotN90();
                             
         // ------------------------------
         // Stripped down the Ray intersection fn to its bare bones

@@ -62,6 +62,79 @@ public static float Repeat(float t, float length)
     return Clamp(t - Mathf.Floor(t / length) * length, 0.0f, length);
 }
 
+https://github.com/FreyaHolmer/Mathfs/blob/master/Runtime/Mathfs.cs#L83
+	/// <summary>Returns the wedge product between two vectors</summary>
+		public static Bivector3 Wedge( Vector3 a, Vector3 b ) =>
+			new Bivector3(
+				a.y * b.z - a.z * b.y,
+				a.z * b.x - a.x * b.z,
+				a.x * b.y - a.y * b.x
+			);
+
+	/// <summary>Returns the greatest common divisor of the two numbers</summary>
+		public static int Gcd( int a, int b ) {
+			// special case bc we can't negate int.MinValue
+			if( a == int.MinValue || b == int.MinValue ) {
+				if( a == int.MinValue && b == int.MinValue )
+					return int.MinValue; // the only negative return value, bc we can't negate this number
+				int v = Max( a, b ).Abs();
+				return v & -v;
+			}
+
+			if( a == b )
+				return a.Abs();
+			( a, b ) = ( Abs( a ), Abs( b ) );
+			while( a != 0 && b != 0 )
+				_ = a > b ? a %= b : b %= a;
+			return a | b;
+		}
+
+/// <summary>Gradually changes a value towards a desired goal over time.
+		/// The value is smoothed by some spring-damper like function, which will never overshoot.
+		/// The function can be used to smooth any kind of value, positions, colors, scalars</summary>
+		/// <param name="current">The current position</param>
+		/// <param name="target">The position we are trying to reach</param>
+		/// <param name="currentVelocity">The current velocity, this value is modified by the function every time you call it</param>
+		/// <param name="smoothTime">Approximately the time it will take to reach the target. A smaller value will reach the target faster</param>
+		/// <param name="maxSpeed">	Optionally allows you to clamp the maximum speed</param>
+		/// <param name="deltaTime">The time since the last call to this function. By default Time.deltaTime</param>
+		public static float SmoothDamp( float current, float target, ref float currentVelocity, float smoothTime, [Uei.DefaultValue( "Mathf.Infinity" )] float maxSpeed, [Uei.DefaultValue( "Time.deltaTime" )] float deltaTime ) {
+			// Based on Game Programming Gems 4 Chapter 1.10
+			smoothTime = MathF.Max( 0.0001F, smoothTime );
+			float omega = 2F / smoothTime;
+
+			float x = omega * deltaTime;
+			float exp = 1F / ( 1F + x + 0.48F * x * x + 0.235F * x * x * x );
+			float change = current - target;
+			float originalTo = target;
+
+			// Clamp maximum speed
+			float maxChange = maxSpeed * smoothTime;
+			change = Clamp( change, -maxChange, maxChange );
+			target = current - change;
+
+			float temp = ( currentVelocity + omega * change ) * deltaTime;
+			currentVelocity = ( currentVelocity - omega * temp ) * exp;
+			float output = target + ( change + temp ) * exp;
+
+			// Prevent overshooting
+			if( originalTo - current > 0.0F == output > originalTo ) {
+				output = originalTo;
+				currentVelocity = ( output - originalTo ) / deltaTime;
+			}
+
+			return output;
+		}
+
+
+		/// <summary>Applies cubic smoothing to the 0-1 interval, also known as the smoothstep function. Similar to an EaseInOut operation</summary>
+		[MethodImpl( INLINE )] public static float Smooth01( float x ) => x * x * ( 3 - 2 * x );
+
+		/// <summary>Applies quintic smoothing to the 0-1 interval, also known as the smootherstep function. Similar to an EaseInOut operation</summary>
+		[MethodImpl( INLINE )] public static float Smoother01( float x ) => x * x * x * ( x * ( x * 6 - 15 ) + 10 );
+
+		/// <summary>Applies trigonometric smoothing to the 0-1 interval. Similar to an EaseInOut operation</summary>
+		[MethodImpl( INLINE )] public static float SmoothCos01( float x ) => Cos( x * PI ) * -0.5f + 0.5f;
 
 Fuzzy Noise: https://shadertoy.com/view/MltyR4
 

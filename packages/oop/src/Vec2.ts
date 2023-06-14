@@ -215,7 +215,6 @@ export default class Vec2 extends Array< number >{
     scaleThenAdd( scale: number, a: ConstVec2, b: ConstVec2 ): this{
         this[0] = a[0] * scale + b[0];
         this[1] = a[1] * scale + b[1];
-        this[2] = a[2] * scale + b[2];
         return this;
     }
 

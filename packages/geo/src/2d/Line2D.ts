@@ -80,12 +80,83 @@ export default class Line2D{
 
     // #region MISC
     static isLeft( a: ConstVec2, b: ConstVec2, p: ConstVec2 ): boolean{
-        return ( // Cross Product
-            ( b[0] - a[0] ) * 
-            ( p[1] - a[1] ) - 
-            ( p[0] - a[0] ) * 
-            ( b[1] - a[1] )
-        ) > 0;
+        // AI Generated
+        // return ( // Cross Product
+        //     ( b[0] - a[0] ) * 
+        //     ( p[1] - a[1] ) - 
+        //     ( p[0] - a[0] ) * 
+        //     ( b[1] - a[1] )
+        // ) > 0;
+
+        // // https://math.stackexchange.com/questions/274712/calculate-on-which-side-of-a-straight-line-is-a-given-point-located
+        return (
+            ( p[0] - a[0] ) * ( b[1] - a[1] ) -
+            ( p[1] - a[1] ) * ( b[0] - a[0] ) ) >= 0;
     }
     // #endregion
 }
+
+
+/*
+
+		/// <summary>The determinant is equivalent to the dot product, but with one vector rotated 90 degrees.
+		/// Note that <c>det(a,b) != det(b,a)</c>. <c>It's equivalent to a.x * b.y - a.y * b.x</c>.
+		/// It is also known as the 2D Cross Product, Wedge Product, Outer Product and Perpendicular Dot Product</summary>
+		public static float Determinant( Vector2 a, Vector2 b ) => a.x * b.y - a.y * b.x; // 2D "cross product"
+
+https://github.com/FreyaHolmer/Mathfs/blob/master/Runtime/Geometric%20Shapes/Line2D.cs
+[MethodImpl( INLINE )] public float SignedDistance( Vector2 point ) => Determinant( dir.normalized, point - origin );
+
+[MethodImpl( INLINE )] public static float ProjectPointToLineTValue( Vector3 lineOrigin, Vector3 lineDir, Vector3 point ) {
+    return Vector3.Dot( lineDir, point - lineOrigin ) / Vector3.Dot( lineDir, lineDir );
+}
+
+		[MethodImpl( INLINE )] public static (float tA, float tB) ClosestPointBetweenLinesTValues( Vector3 aOrigin, Vector3 aDir, Vector3 bOrigin, Vector3 bDir ) {
+			// source: https://math.stackexchange.com/questions/2213165/find-shortest-distance-between-lines-in-3d
+			Vector3 a = aOrigin;
+			Vector3 b = aDir;
+			Vector3 c = bOrigin;
+			Vector3 d = bDir;
+			Vector3 e = a - c;
+			float be = Vector3.Dot( b, e );
+			float de = Vector3.Dot( d, e ); 
+			float bd = Vector3.Dot( b, d );
+			float b2 = Vector3.Dot( b, b );
+			float d2 = Vector3.Dot( d, d );
+			float A = -b2 * d2 + bd * bd;
+
+			float s = ( -b2 * de + be * bd ) / A;
+			float t = ( d2 * be - de * bd ) / A;
+
+			return ( t, s );
+
+			// Vector3 n = Vector3.Cross( aDir, bDir );
+			// float nMag = n.magnitude;
+			// float dist = Vector3.Dot( n, aOrigin - bOrigin ) / nMag;
+		}
+
+[MethodImpl( INLINE )] public static Vector3 ProjectPointToLine( Vector3 lineOrigin, Vector3 lineDir, Vector3 point ) {
+			return lineOrigin + lineDir * ProjectPointToLineTValue( lineOrigin, lineDir, point );
+		}
+
+		/// <summary>Projects a point onto an infinite line</summary>
+		/// <param name="line">Line to project onto</param>
+		/// <param name="point">The point to project onto the line</param>
+		[MethodImpl( INLINE )] public static Vector3 ProjectPointToLine( Line3D line, Vector3 point ) => ProjectPointToLine( line.origin, line.dir, point );
+
+		/// <summary>Returns the signed distance to a 3D plane</summary>
+		/// <param name="planeOrigin">Plane origin</param>
+		/// <param name="planeNormal">Plane normal (has to be normalized for a true distance)</param>
+		/// <param name="point">The point to use when checking distance to the plane</param>
+		[MethodImpl( INLINE )] public static float PointToPlaneSignedDistance( Vector3 planeOrigin, Vector3 planeNormal, Vector3 point ) {
+			return Vector3.Dot( point - planeOrigin, planeNormal );
+		}
+
+		/// <summary>Returns the distance to a 3D plane</summary>
+		/// <param name="planeOrigin">Plane origin</param>
+		/// <param name="planeNormal">Plane normal (has to be normalized for a true distance)</param>
+		/// <param name="point">The point to use when checking distance to the plane</param>
+		[MethodImpl( INLINE )] public static float PointToPlaneDistance( Vector3 planeOrigin, Vector3 planeNormal, Vector3 point ) => Abs( PointToPlaneSignedDistance( planeOrigin, planeNormal, point ) );
+
+
+*/

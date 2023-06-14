@@ -1,0 +1,245 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+//#region IMPORTS
+import useThreeWebGL2, { useDarkScene, useVisualDebug } from '../../_lib/useThreeWebGL2.js';
+
+import { Maths }     from '../../../packages/core/src/index.ts';
+import { Vec2 }      from '../../../packages/oop/src/index.ts';
+import { Polygon2D } from '../../../packages/geo/src/index.ts';
+import Line2D        from '../../../packages/geo/src/2d/Line2D.ts';
+//#endregion
+
+//#region MAIN
+let App   = useDarkScene( useThreeWebGL2() );
+let Debug = {};
+let Ref   = {};
+
+window.addEventListener( 'load', async _=>{
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Setup
+    App.sphericalLook( 0, 90, 4 );
+    Debug = await useVisualDebug( App );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    const poly = new Polygon2D();
+    poly.addArray( [ [1,0], [1.2, -0.4], [0,-1], [-1,0], [-0.2, 0.5], [0,1] ] );
+    // poly.addArray( [ [1,0], [0,-1], [-1,0], [0,1] ] );
+    // poly.addArray( [ [0.5,0], [0,-1], [-1,0], [0,1] ] );
+
+    for( let p of poly.iterVec3() ){
+        Debug.pnt.add( p, 0x00ff00, 2 );
+    }
+
+    for( let e of poly.iterEdges() ){
+        Debug.ln.add( e.a.toVec3(), e.b.toVec3(), 0x00ff00 );
+    }
+
+    const [outer,inner] = polyline( poly, 0.2 );
+
+    for( let e of outer.iterEdges() ) Debug.ln.add( e.a.toVec3(), e.b.toVec3(), 0xffffff );
+    for( let e of inner.iterEdges() ) Debug.ln.add( e.a.toVec3(), e.b.toVec3(), 0xffffff );
+
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    App.renderLoop();
+});
+
+
+
+// https://gamedev.stackexchange.com/questions/154068/calculating-the-geometry-of-a-thick-3-way-miter-joint
+// https://gist.github.com/kekscom/4194148
+// https://blog.scottlogic.com/2019/11/18/drawing-lines-with-webgl.html
+
+function polyLineX( pnts, radius=0.3, isClosedLoop=true ){
+    const cnt  = pnts.length / 3;
+    const iEnd = ( isClosedLoop )? cnt : cnt - 1;
+    const prev = [0,0,0];
+    const cur  = [0,0,0];
+    const n    = [0,0,0];
+
+    const dAry = [];
+    let i;
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Find Direction of each segment
+    vec3_fromBuf( prev, pnts, 0 ); // Get first Point
+
+    for( i=1; i <= iEnd; i++ ){
+        // ---------------------------------------
+        // Get Point
+        vec3_fromBuf( cur, pnts, i % cnt );
+        
+        // ---------------------------------------
+        // Compute Line Direction
+        vec3_sub( n, cur, prev );
+        vec3_norm( n, n );       
+        dAry.push( n.slice() );
+
+        Debug.ln.add( prev, cur, 0x00ff00 );
+        // Debug.ln.add( prev, vec3_scaleAndAdd( [], prev, n, 1 ), 0xff0000  );
+        // ---------------------------------------
+        vec3_copy( prev, cur );
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    if( isClosedLoop )  vec3_copy( prev, dAry[ dAry.length-1 ] );
+    else                vec3_set( prev, 0, 0, 0 );
+
+    const v      = [0,0,0];
+    const p      = [0,0,0];
+    const miter  = [0,0,0];
+    let scl;
+
+    const outer  = [];
+    const inner  = [];
+
+    for( i=0; i < iEnd; i++ ){
+        vec3_copy( cur, dAry[ i ] );
+        vec3_fromBuf( p, pnts, i );
+
+        // ---------------------------------------
+        // Find Tangent by combinding the line directions
+        // This is like a mid vector between the two vectors
+        vec3_add( miter, cur, prev );
+        vec3_norm( miter, miter );
+
+        Debug.ln.add( p, vec3_scaleAndAdd( [], p, miter, 1 ), 0xffff00  );
+
+        // ---------------------------------------
+        // Get miter direction by doing a 90 deg rotation of tangent
+        vec3_perp_y( miter, miter );
+
+        // Rotate the curreng segment's direction by 90
+        // degrees to get its normal direction
+        vec3_perp_y( n, cur );
+        
+        // ---------------------------------------
+        // Distance for the mighter is size over dot of miter and normal
+        scl = radius / vec3_dot( miter, n );
+
+        Debug.ln.add( p, vec3_scaleAndAdd( [], p, miter, scl ), 0x00ffff  );
+        // Debug.ln.add( v, vec3_scaleAndAdd( [], v, n, 1 ), 0x00ffff  );
+
+        vec3_scaleAndAdd( v, p, miter, scl );   // Outer Point
+        outer.push( ...v );
+        Debug.pnt.add( v, 0x00ffff, 8 );
+
+        vec3_negate( miter, miter );            // Flip Direction
+        vec3_scaleAndAdd( v, p, miter, scl );   // Inner Point
+        inner.push( ...v );
+        Debug.pnt.add( v, 0x00ffff, 8 );
+
+        // ---------------------------------------
+        vec3_copy( prev, cur );
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Handle last point when not a closed loop
+    if( !isClosedLoop ){
+        // Last Point
+        vec3_fromBuf( p, pnts, iEnd );
+
+        // Get normal of last segment
+        vec3_copy( n, dAry[ dAry.length-1 ] );
+        vec3_perp_y( n, n );
+
+        Debug.ln.add( p, vec3_scaleAndAdd( [], p, n, 1 ), 0x00ffff  );
+        
+        vec3_scaleAndAdd( v, p, n, scl );
+        outer.push( ...v );
+        Debug.pnt.add( v, 0x00ffff, 8 );
+
+
+        vec3_negate( n, n );
+        vec3_scaleAndAdd( v, p, n, scl );
+        inner.push( ...v );
+        Debug.pnt.add( v, 0x00ffff, 8 );
+    }
+    
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    return { outer, inner };
+}
+
+
+function polyline( poly, radius=0.1, isClosed=true ){
+    const pnts    = poly.points;
+    const cnt     = poly.pointCount;
+    const end     = ( isClosed )? cnt : cnt - 1;
+    const edgeDir = [];
+
+    let v;
+    let i, j;
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Compute direction of each segment
+    for( i=0; i < end; i++ ){
+        j = ( i+1 ) % cnt;
+        v  = Vec2.sub( pnts[j], pnts[i] ).norm();
+        edgeDir.push( v );
+        // Debug.ln.add( pnts[i].toVec3(true,0.2), Vec2.add( pnts[i], v ).toVec3(true,0.2), 0x00ffff );
+        // console.log( i, ii );
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Compute the inner & outer points by using the miter vector
+    // along with a scale 
+    
+    const miterDir  = new Vec2();
+    const normDir   = new Vec2();
+    const outer     = [];
+    const inner     = [];
+    let prevDir     = new Vec2( ( isClosed )? edgeDir[ edgeDir.length-1 ] : [0,0,0] );
+    let curDir;
+    let scl;
+
+    Debug.pnt.add( pnts[0].toVec3(), 0x00ff00, 3, 0 );
+    Debug.pnt.add( pnts[1].toVec3(), 0x00ff00, 5, 4 );
+
+    for( i=0; i < end; i++ ){
+        curDir = edgeDir[ i ];
+        normDir.copy( curDir ).rotN90();    // Normal vector
+        miterDir                           
+            .fromAdd( prevDir, curDir )     // Tangent Vector
+            .norm() 
+            .rotN90();                      // Rotate for bivector
+
+        // Distance for the miter is size over dot of miter and normal
+        scl = radius / Vec2.dot( miterDir, normDir );
+        Debug.ln.add( pnts[i].toVec3(), Vec2.scaleThenAdd( scl, miterDir, pnts[i] ).toVec3(), 0xffff00 );
+        Debug.ln.add( pnts[i].toVec3(), Vec2.scaleThenAdd( scl, normDir, pnts[i] ).toVec3(), 0x00ffff );
+        
+        // Outer Point
+        outer.push( (v = Vec2.scaleThenAdd( scl, miterDir, pnts[i] )) );
+        Debug.pnt.add( v.toVec3(), 0xffffff, 2, 1 );
+
+        // Inner Point
+        inner.push( (v = Vec2.scaleThenAdd( scl, miterDir.negate(), pnts[i] )) );
+        Debug.pnt.add( v.toVec3(), 0xffffff, 2, 1 );
+
+        prevDir.copy( curDir );
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Compute final miter points when dealing with lines
+    if( !isClosed ){
+        i = cnt - 1;
+        normDir.copy( edgeDir[ i-1 ] ).rotN90();    // Normal vector
+        Debug.ln.add( pnts[i].toVec3(), Vec2.scaleThenAdd( radius, normDir, pnts[i] ).toVec3(), 0x00ffff );
+
+        // Outer Point
+        outer.push( (v = Vec2.scaleThenAdd( radius, normDir, pnts[i] )) );
+        Debug.pnt.add( v.toVec3(), 0xffffff, 2, 1 );
+
+        // Inner Point
+        inner.push( (v = Vec2.scaleThenAdd( radius, normDir.negate(), pnts[i] )) );
+        Debug.pnt.add( v.toVec3(), 0xffffff, 2, 1 );
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    return [ new Polygon2D( outer ), new Polygon2D( inner ) ];
+}
+
+//#endregion
+</script></body></html>

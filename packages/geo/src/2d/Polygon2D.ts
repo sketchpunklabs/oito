@@ -2,7 +2,6 @@ import { Vec2 } from '@oito/oop';
 import Line2D   from './Line2D';
 
 export default class Polygon2D{
-
     // #region MAIN
     points: Array< Vec2 > = [];
     constructor( pnts?: Array< Vec2 > ){
@@ -71,13 +70,52 @@ export default class Polygon2D{
 
         for (let i = 0; i < end; i++){
             ii  = i+1;
-            sum += ( pnts[ii][0] - pnts[i][0] ) * ( pnts[ii][1] + pnts[i][1] );
-
-
-            // sum += (points[i + 2] - points[i]) * (points[i + 3] + points[i + 1]);
+            // sum += ( pnts[ii][0] - pnts[i][0] ) * ( pnts[ii][1] + pnts[i][1] );
+            // https://www.baeldung.com/cs/list-polygon-points-clockwise#2-area-of-polygon
+            sum += pnts[i][0] * pnts[ii][1] - pnts[i][1] * pnts[ii][0];
         }
 
-        return ( sum < 0 );
+        // return ( sum < 0 );
+        return ( sum >= 0 );
+    }
+
+    toVec3Buffer( isType: boolean = true, isYUp: boolean = true, n: number = 0 ): Float32Array | Array<number>{
+        const cnt   = this.points.length;
+        const buf : Float32Array | Array<number> = ( isType )
+            ? new Float32Array( cnt * 3 )
+            : new Array( cnt * 3 );
+        let   i     = 0;
+
+        if( isYUp ){
+            for( const p of this.points ){
+                buf[i++] = p[ 0 ];
+                buf[i++] = n;
+                buf[i++] = p[ 1 ];
+            }
+        }else{
+            for( const p of this.points ){
+                buf[i++] = p[ 0 ];
+                buf[i++] = p[ 1 ];
+                buf[i++] = n;
+            }
+        }
+
+        return buf;
+    }
+
+    toFlatBuffer( isType: boolean = true ): Float32Array | Array<number>{
+        const cnt   = this.points.length;
+        const buf : Float32Array | Array<number> = ( isType )
+            ? new Float32Array( cnt * 2 )
+            : new Array( cnt * 2 );
+        
+        let i = 0;
+        for( const p of this.points ){
+            buf[i++] = p[ 0 ];
+            buf[i++] = p[ 1 ];
+        }
+
+        return buf;
     }
     // #endregion
 
@@ -119,6 +157,66 @@ export default class Polygon2D{
     
         return [ poly0, poly1 ];
     }
+
+    /** Return Points for [ Outer, Inner ] */
+    polyline( radius=0.1, isClosed=true ):[ Array<Vec2>,  Array<Vec2> ]{
+        const pnts    = this.points;
+        const cnt     = this.pointCount;
+        const end     = ( isClosed )? cnt : cnt - 1;
+        const edgeDir = [];
+    
+        let v;
+        let i, j;
+    
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Compute direction of each segment
+        for( i=0; i < end; i++ ){
+            j = ( i+1 ) % cnt;
+            v  = Vec2.sub( pnts[j], pnts[i] ).norm();
+            edgeDir.push( v );
+        }
+    
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Compute the inner & outer points by using the miter vector
+        // along with a scale 
+        
+        const miterDir  = new Vec2();
+        const normDir   = new Vec2();
+        const outer     = [];
+        const inner     = [];
+        const prevDir   = new Vec2( ( isClosed )? edgeDir[ edgeDir.length-1 ] : [0,0,0] );
+        let curDir;
+        let scl;
+    
+        for( i=0; i < end; i++ ){
+            curDir = edgeDir[ i ];
+            normDir.copy( curDir ).rotN90();    // Normal vector
+            miterDir                           
+                .fromAdd( prevDir, curDir )     // Tangent Vector
+                .norm() 
+                .rotN90();                      // Rotate for bivector
+    
+            // Distance for the miter is size over dot of miter and normal
+            scl = radius / Vec2.dot( miterDir, normDir );
+            
+            outer.push( (v = Vec2.scaleThenAdd( scl, miterDir, pnts[i] )) );            // Outer Point
+            inner.push( (v = Vec2.scaleThenAdd( scl, miterDir.negate(), pnts[i] )) );   // Inner Point
+    
+            prevDir.copy( curDir );
+        }
+    
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Compute final miter poins when dealing with lines
+        if( !isClosed ){
+            i = cnt - 1;
+            normDir.copy( edgeDir[ i-1 ] ).rotN90();                                    // Normal vector
+            outer.push( (v = Vec2.scaleThenAdd( radius, normDir, pnts[i] )) );          // Outer Point
+            inner.push( (v = Vec2.scaleThenAdd( radius, normDir.negate(), pnts[i] )) ); // Inner Point
+        }
+    
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        return [ outer, inner ];
+    }
     // #endregion
 
     // #region ITERATORS
@@ -158,3 +256,57 @@ export default class Polygon2D{
     // #endregion
 
 }
+
+
+/*
+https://github.com/FreyaHolmer/Mathfs/blob/master/Runtime/Geometric%20Shapes/Polygon.cs
+
+public float SignedArea {
+    get {
+        int count = points.Count;
+        float sum = 0f;
+        for( int i = 0; i < count; i++ ) {
+            Vector2 a = points[i];
+            Vector2 b = points[( i + 1 ) % count];
+            sum += ( b.x - a.x ) * ( b.y + a.y );
+        }
+
+        return sum * 0.5f;
+    }
+}
+
+/// <summary>Returns the length of the perimeter of the polygon</summary>
+public float Perimeter {
+    get {
+        int count = points.Count;
+        float totalDist = 0f;
+        for( int i = 0; i < count; i++ ) {
+            Vector2 a = points[i];
+            Vector2 b = points[( i + 1 ) % count];
+            float dx = a.x - b.x;
+            float dy = a.y - b.y;
+            totalDist += MathF.Sqrt( dx * dx + dy * dy ); // unrolled for speed
+        }
+
+        return totalDist;
+    }
+}
+
+/// <summary>Returns the axis-aligned bounding box of this polygon</summary>
+public Rect Bounds {
+    get {
+        int count = points.Count;
+        Vector2 p = points[0];
+        float xMin = p.x, xMax = p.x, yMin = p.y, yMax = p.y;
+        for( int i = 1; i < count; i++ ) {
+            p = points[i];
+            xMin = MathF.Min( xMin, p.x );
+            xMax = MathF.Max( xMax, p.x );
+            yMin = MathF.Min( yMin, p.y );
+            yMax = MathF.Max( yMax, p.y );
+        }
+
+        return new Rect( xMin, yMin, xMax - xMin, yMax - yMin );
+    }
+}
+*/

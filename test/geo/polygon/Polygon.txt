@@ -14,6 +14,14 @@ https://twitter.com/watawatabou/status/1372930343221796869
 https://www.patreon.com/posts/49191011
 https://www.boristhebrave.com/2021/08/14/recursive-subdivision-variants/
 
+https://twitter.com/SubPixelPerfect/status/1437405338463088642?s=20
+https://www.patreon.com/posts/49191011
+https://twitter.com/watawatabou/status/1372871896266588161?s=20
+
+https://twitter.com/KennyPirman/status/1643926705659150338?s=20
+It chops polygons recursively from the longest edge, at a random position along that edge,
+with a random angle (modulated by parameters), not sure what makes a bisection regular
+
 export function isPolygonClockwise(polygon: Polygon): boolean
 {
     const points = polygon.points;
@@ -77,6 +85,22 @@ getPlane(){
         c[2] += a[2];
     }
     return [ c.divScale( len ), n.norm() ];
+
+function calcPolygonArea(vertices) {
+    var total = 0;
+
+    for (var i = 0, l = vertices.length; i < l; i++) {
+      var addX = vertices[i].x;
+      var addY = vertices[i == vertices.length - 1 ? 0 : i + 1].y;
+      var subX = vertices[i == vertices.length - 1 ? 0 : i + 1].x;
+      var subY = vertices[i].y;
+
+      total += (addX * addY * 0.5);
+      total -= (subX * subY * 0.5);
+    }
+
+    return Math.abs(total);
+}
 
 class Polygon3D{
     points : Array< Array<number> >;
