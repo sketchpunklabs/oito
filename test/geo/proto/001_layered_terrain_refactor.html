@@ -20,14 +20,15 @@ let Ref   = {};
 window.addEventListener( 'load', async _=>{
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Setup
-    App.sphericalLook( 11, 40, 7, [1,0,1] );
+    App.sphericalLook( 16, 40, 15, [3,0,3] );
     Debug = await useVisualDebug( App );
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    const size  = 2;
-    const freq  = 0.14;
-    const res   = 10;
-    const H     = 2;
+    // Create Terrain from Noise
+    const size  = 6;
+    const freq  = 0.11;
+    const res   = 20;
+    const H     = 4;
     const L     = 0.1;
 
     const geo   = Grid.create( { width:size, height:size, cols:res, rows:res, center:false } );
@@ -38,33 +39,33 @@ window.addEventListener( 'load', async _=>{
     mesh.position.y = 0.01;
     App.scene.add( mesh );
 
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Generate Polygon Blocks from Terrain
+    /**/
     const pLevel = new PolyGridLevel( geo.vertices, res );
 
-    let steps = 0.1;
+    let steps = 0.2;
     for( let i=0; i < 5; i++ ){
         const min = i * steps;
         const max = min + steps;
 
         const aryGeo = pLevel.heightGen( min, max );
+        break;
+        
 
         if( aryGeo ){
-            for( const geo of aryGeo ){
-                const bGeo = Util.geoBuffer( geo );
-                bGeo.computeVertexNormals();
+            // for( const geo of aryGeo ){
+            //     const bGeo = Util.geoBuffer( geo );
+            //     bGeo.computeVertexNormals();
 
-                const mesh = new THREE.Mesh( bGeo, new THREE.MeshPhongMaterial( { color:0x00ffff, flatShading:false } ) ); //  side:THREE.DoubleSide,
-                App.scene.add( mesh );
-            }
+            //     const mesh = new THREE.Mesh( bGeo, new THREE.MeshPhongMaterial( { color:0x00ffff, flatShading:false } ) ); //  side:THREE.DoubleSide,
+            //     App.scene.add( mesh );
+            // }
         }else{
             break;
         }
-
     }
-
     
-
-
-
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     App.renderLoop();
@@ -316,18 +317,18 @@ class PolyGridLevel{
 
         for( let i=0; i < polys.length; i++ ){
             polys[i] = sortPolygonPoints( polys[i], true );
-            polys[i] = simplifyPolySegments( polys[i], h );
+            // polys[i] = simplifyPolySegments( polys[i], h );
 
             if( polys[i].length < 3 ){
                 console.log( 'Cleanup process removed polygon #', i );
             }else{
                 // Debug final polygon
-                // for( let e of iterEdges( polys[i] ) ){
-                //     Debug.pnt.add( e.a.toVec3( true, h ), 0xffffff, 2 );
-                //     Debug.ln.add( e.a.toVec3( true, h ), e.b.toVec3( true, h ), 0xffffff );
-                // }
+                for( let e of iterEdges( polys[i] ) ){
+                    Debug.pnt.add( e.a.toVec3( true, h ), 0xffffff, 2 );
+                    Debug.ln.add( e.a.toVec3( true, h ), e.b.toVec3( true, h ), 0xffffff );
+                }
 
-                aryGeo.push( polyExtrude( polys[i], min, max ) );
+                // aryGeo.push( polyExtrude( polys[i], min, max ) );
             }
         }
 
@@ -358,17 +359,15 @@ class PolyGridLevel{
 
     findPointGroups( h ){
         const colors = [ 0xff0000, 0xffff00, 0xff00ff, 0x00ffff ];  // TODO - 4 Debugging only
-        const grp  = new Array( this.grid.state.length ).fill( -1 );
-        let   gCnt = 0;
-        let   gIdx = 0;
+        const grp    = new Array( this.grid.state.length ).fill( -1 );
+        let   gCnt   = 0;
+        let   gIdx   = 0;
         let   niAry;
         let   ni;
 
         for( let i=0; i < this.grid.state.length; i++ ){
             if( this.grid.state[ i ] ){
 
-                // console.log( 'isOn', i );
-                // n = getIdxNeighbors( i, size );
                 niAry = this.grid.get9PatchLevelNeighborsFromIndex( i );
 
                 // ------------------------------------
@@ -443,8 +442,8 @@ class PolyGridLevel{
                 );
 
                 // ----------------------------------
-                // const v = [ this.verts[j+0], h, this.verts[j+2] ];
-                // Debug.pnt.add( v, colors[ gNum ], 3, 0 );
+                const v = [ this.verts[j+0], h, this.verts[j+2] ];
+                Debug.pnt.add( v, colors[ gNum ], 3, 0 );
             }
         }
 
