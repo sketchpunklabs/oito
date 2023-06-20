@@ -1,0 +1,487 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+// #region IMPORTS
+import useThreeWebGL2, { useDarkScene, useVisualDebug } from '../../_lib/useThreeWebGL2.js';
+
+import { Vec2 }      from '../../../packages/oop/src/index.ts';
+import { Polygon2D } from '../../../packages/geo/src/index.ts';
+import Line2D        from '../../../packages/geo/src/2d/Line2D.ts';
+// #endregion
+
+// #region MAIN
+let App   = useDarkScene( useThreeWebGL2() );
+let Debug = {};
+let Ref   = {};
+
+window.addEventListener( 'load', async _=>{
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Setup
+    App.sphericalLook( 0, 50, 3, [0,0,0] );
+    Debug = await useVisualDebug( App );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const poly = new Polygon2D();
+    poly.addArray( [ [1,0], [1.2, -0.4], [0,-1], [-1,0], [-0.2, 0.5], [0,1] ] );
+    // poly.addArray( [[1, 0],[1.9, -0.5],[0, -2],[-2, 0],[-0.2, 0.5],[0, 1]] );
+
+    // for( let p of poly.iterVec3() )  Debug.pnt.add( p, 0x00ff00, 2 );
+    for( let e of poly.iterEdges() ) Debug.ln.add( e.a.toVec3(), e.b.toVec3(), 0x00ff00 );
+
+    const shapes = recursiveCut( poly.points, 5 );
+
+    for( let s of shapes ){
+        for( const e of iterEdges( s ) )  Debug.ln.add( e.a.toVec3(), e.b.toVec3(), 0x00ffff );
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    App.renderLoop();
+});
+// #endregion
+
+
+// #region POLYGON MISC
+
+// iterator for an array of vec2 that will group
+// points as sets of edges around a polygon.
+function iterEdges( pnts, isClosed=true ){
+    const cnt     = pnts.length;
+    const len     = ( isClosed )? cnt : cnt-1;    
+    const v       = { a:pnts[ 0 ], b:pnts[ 0 ], ai:0, bi:1 };
+    const result  = { value:v, done:false };
+
+    const next    = ()=>{
+        if( v.ai >= len ) result.done = true;
+        else{
+            v.a = pnts[ v.ai ];
+            v.b = pnts[ v.bi ];
+            v.ai++;
+            v.bi = ( v.bi + 1 ) % cnt;
+        }
+        return result;
+    };
+
+    return { [Symbol.iterator](){ return { next }; } };
+}
+
+// Add an offset to all the points of a polygon
+function addOffset( pnts, offset ){
+    for( const p of pnts ) p.add( offset );
+}
+
+// Get the points of an edge of a closed polygon
+function getEdge( pnts, i ){
+    const cnt = pnts.length;
+    const j   = ( cnt + i ) % cnt;
+    const k   = ( cnt + i + 1 ) % cnt;
+    return { a: pnts[ j ], b: pnts[ k ], ai: j, bi: k };
+}
+
+// Is point on the left side of a segment
+function isLeft( a, b, p ){
+    // https://math.stackexchange.com/questions/274712/calculate-on-which-side-of-a-straight-line-is-a-given-point-located
+    const rtn = 
+        ( p[0] - a[0] ) * ( b[1] - a[1] ) -
+        ( p[1] - a[1] ) * ( b[0] - a[0] );
+
+    return ( rtn >= 0 );
+}
+
+function isPointOnSegment( a0, a1, p, epsilon=0.001  ){
+    const toStart = Vec2.dist( a0, p );
+    const toEnd   = Vec2.dist( a1, p );
+    const segLen  = Vec2.dist( a1, a0 );
+
+    return (
+        Math.abs( toStart + toEnd - segLen ) < epsilon 
+        && toStart < segLen + epsilon 
+        && toEnd   < segLen + epsilon
+    );
+}
+
+// Test if at least one point of the subpoly intersects
+// any of the segments of the main poly
+function hasSharedEdges( mpoly, spoly ){
+    const mCnt = mpoly.length;
+    const sCnt = spoly.length;
+
+    let i, j, k;
+
+    // Loop each segment of the main polygon
+    for( i=0; i < mCnt; i++ ){
+        j = ( i + 1 ) % mCnt;
+
+        // Loop each point of the sub polygon
+        for( k=0; k < sCnt; k++ ){
+            // Debug.pnt.add( spoly[k].toVec3(), 0x00ff00, 1 );
+            if( isPointOnSegment( mpoly[i], mpoly[j], spoly[k] ) ){
+                // Debug.pnt.add( spoly[k].toVec3(), 0xff00ff, 1.2 );
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+// #endregion
+
+
+// #region POLY OPS
+
+// Turn polygon into a polyline
+function polyline( pnts, radius=0.1, isClosed=false ){
+    const cnt     = pnts.length;
+    const end     = ( isClosed )? cnt : cnt - 1;
+    const edgeDir = [];
+
+    let v;
+    let i, j;
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Compute direction of each segment
+    for( i=0; i < end; i++ ){
+        j = ( i+1 ) % cnt;
+        v  = Vec2.sub( pnts[j], pnts[i] ).norm();
+        edgeDir.push( v );
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Compute the inner & outer points by using the miter vector
+    // along with a scale 
+    
+    const miterDir  = new Vec2();
+    const normDir   = new Vec2();
+    const outer     = [];
+    const inner     = [];
+    const prevDir   = new Vec2( ( isClosed )? edgeDir[ edgeDir.length-1 ] : [0,0,0] );
+    let curDir;
+    let scl;
+
+    for( i=0; i < end; i++ ){
+        curDir = edgeDir[ i ];
+        normDir.copy( curDir ).rotN90();    // Normal vector
+        miterDir                           
+            .fromAdd( prevDir, curDir )     // Tangent Vector
+            .norm() 
+            .rotN90();                      // Rotate for bivector
+
+        // Distance for the miter is size over dot of miter and normal
+        scl = radius / Vec2.dot( miterDir, normDir );
+        
+        outer.push( (v = Vec2.scaleThenAdd( scl, miterDir, pnts[i] )) );            // Outer Point
+        inner.push( (v = Vec2.scaleThenAdd( scl, miterDir.negate(), pnts[i] )) );   // Inner Point
+
+        prevDir.copy( curDir );
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Compute final miter poins when dealing with lines
+    if( !isClosed ){
+        i = cnt - 1;
+        normDir.copy( edgeDir[ i-1 ] ).rotN90();                                    // Normal vector
+        outer.push( (v = Vec2.scaleThenAdd( radius, normDir, pnts[i] )) );          // Outer Point
+        inner.push( (v = Vec2.scaleThenAdd( radius, normDir.negate(), pnts[i] )) ); // Inner Point
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    return [ outer, inner ];
+}
+
+// #endregion
+
+
+// #region BI-SECTION CUTTING
+
+function recursiveCut( pnts, maxLvl=4, pad=0.03 ){
+    const offset    = [0,0];
+    const yInc      = 0;
+    const bendScl   = 0.5;
+
+    const out       = [];
+    const stack     = [{
+        points : pnts,
+        lvl    : 0,
+    }];
+
+    let lvl;
+    let itm;
+    let seg;
+    let bend;
+    let lft;
+    let rit;
+
+    while( stack.length > 0 ){
+        itm     = stack.pop();
+        lvl     = itm.lvl + 1;
+
+        // if( lvl == 3 ){
+            // for( const p of itm.points ) Debug.pnt.add( p.toVec3(true, itm.lvl*yInc), 0x00ff00, 1.5, 1 );
+        // }
+
+        seg     = getLongestEdge( itm.points );
+        // seg     = getEdge( itm.points, 0 );
+        // Debug.pnt.add( seg.a.toVec3(), 0x00ffff, 3, 0 );
+        // Debug.pnt.add( seg.b.toVec3(), 0x00ffff, 3, 1 );
+
+        bend    = bentSegmentFromEdge( itm.points, seg, bendScl );
+        
+        const [ outer, inner ] = polyline( bend, pad );
+
+        // if( lvl == 3 && bend.length == 2 ){
+            // for( const e of iterEdges( bend, false ) )  Debug.ln.add( e.a.toVec3(true,lvl*yInc), e.b.toVec3(true,lvl*yInc), 0xffffff );
+            // for( const e of iterEdges( outer, false ) ) Debug.ln.add( e.a.toVec3(true,lvl*yInc), e.b.toVec3(true,lvl*yInc), 0xffff00 );
+            // for( const e of iterEdges( inner, false ) ) Debug.ln.add( e.a.toVec3(true,lvl*yInc), e.b.toVec3(true,lvl*yInc), 0x00ffff );
+        // }
+
+        switch( bend.length ){
+            case 3:
+                lft = bentSegmentCut( itm.points, inner[0], inner[1], inner[2], true );
+                rit = bentSegmentCut( itm.points, outer[0], outer[1], outer[2], false );
+                break;
+            case 2:
+                lft = segmentCut( itm.points, inner[0], inner[1], true );
+                rit = segmentCut( itm.points, outer[0], outer[1], false );
+                break;
+        }
+
+        // if( lvl == 3 && bend.length == 2 && itm.side == 1 ){
+            // console.log( JSON.stringify( itm.points ) );
+
+            // addOffset( lft, offset );
+            // addOffset( rit, offset );
+
+            // for( const e of iterEdges( lft ) )  Debug.ln.add( e.a.toVec3(true,lvl*yInc), e.b.toVec3(true,lvl*yInc), 0x00ffff );
+            // for( const e of iterEdges( rit ) )  Debug.ln.add( e.a.toVec3(true,lvl*yInc), e.b.toVec3(true,lvl*yInc), 0xffff00 );
+        // }
+
+        if( lvl < maxLvl ){
+            if( hasSharedEdges( pnts, lft ) ) stack.push( { points: lft, lvl, side:0 } );
+            if( hasSharedEdges( pnts, rit ) ) stack.push( { points: rit, lvl, side:1 } );
+            // stack.push( { points: lft, lvl, side:0 } );
+            // stack.push( { points: rit, lvl, side:1 } );
+        }else{
+
+            if( hasSharedEdges( pnts, lft ) ) out.push( lft );
+            if( hasSharedEdges( pnts, rit ) ) out.push( rit );
+            // out.push( lft );
+            // out.push( rit );
+        }
+    }
+
+    return out;
+}
+
+// Get the longest edge from an array of points
+function getLongestEdge( pnts ){
+    const cnt   = pnts.length;
+    let max     = -Infinity;
+    let ai      = -1;
+    let bi      = -1;
+    let d       = 0;
+    let ii;
+
+    for( let i=0; i < cnt; i++ ){
+        ii = ( i + 1 ) % cnt;
+        d  = Vec2.distSqr( pnts[i], pnts[ii] );
+        if( d > max ){
+            ai  = i;
+            bi  = ii;
+            max = d;
+        }
+    }
+
+    return { a:pnts[ai], b:pnts[bi], ai, bi };
+}
+
+// Ray intersection test on all edges of a polygon
+function rayIntersectEdges( pnts, ro, rd, hPos, ignoreIdx=null ){
+    const cnt = pnts.length;
+    let ii;
+
+    for( let i=0; i < cnt; i++ ){
+        if( ignoreIdx === i ) continue;
+        ii = ( i + 1 ) % cnt;
+        
+        if( Line2D.intersectingRaySegment( ro, rd, pnts[i], pnts[ii], hPos ) ){
+            return i;
+        }
+    }
+    return -1;
+}
+
+// Compute 2 segments that create bent bisection line
+function bentSegmentFromEdge( pnts, aEdge, initScl=0.25  ){
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Compute a mid point & perpendicular dir
+    const aPos = new Vec2().fromLerp( aEdge.a, aEdge.b );
+    const aDir = new Vec2().fromSub( aEdge.b, aEdge.a ).norm().rotP90();
+
+    // Debug.pnt.add( aPos.toVec3(), 0xffff00, 3, 1 );
+    // Debug.ln.add( aPos.toVec3(), Vec2.add( aPos, aDir ).toVec3(), 0xffff00 );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Find an edge that intersects the perpendicular ray of Edge A
+    const hitPos = new Vec2();
+    const bi     = rayIntersectEdges( pnts, aPos, aDir, hitPos, aEdge.ai );
+    const bEdge  = getEdge( pnts, bi );
+
+    // Debug.pnt.add( hitPos.toVec3(), 0xffff00, 3, 1 );
+    // Debug.pnt.add( bEdge.a.toVec3(), 0x00ffff, 3, 0 );
+    // Debug.pnt.add( bEdge.b.toVec3(), 0x00ffff, 3, 1 );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Get hit edge's perpendicular ray
+    const bDir = new Vec2()
+        .fromSub( bEdge.b, bEdge.a )
+        .norm()
+        .rotP90()   // Perpendicular for counter-clock wise winding
+        .negate();  // Flip since its going to be used for searching
+
+    // Debug.ln.add( hitPos.toVec3(), Vec2.add( hitPos, bDir ).toVec3(), 0xffff00 );
+
+    if( Math.abs( Vec2.dot( aDir, bDir ) ) >= 0.999 ){
+        // console.log( 'Parallel, do straight line' );
+
+        // Extend distance for polyline cutting
+        const len = Vec2.dist( aPos, hitPos );
+        hitPos.add( aDir );
+        aPos.add( aDir.negate() );
+
+        // Debug.pnt.add( hitPos.toVec3(), 0xffffff, 2, 1 );
+        // Debug.pnt.add( aPos.toVec3(), 0xffffff, 2, 1 );
+
+        return [ aPos, hitPos ];
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Create bend from starting edge then do step tests of
+    // finding the right spot on the hit endge to
+    const hitDist   = Vec2.dist( aPos, hitPos );
+    const bendPos   = new Vec2();
+    const finPos    = new Vec2();
+
+    for( let i=0; i < 10; i++ ){
+        bendPos.fromScale( aDir, ( 1 - initScl / (2**i) ) * hitDist ).add( aPos );
+        if( Line2D.intersectingRaySegment( bendPos, bDir, bEdge.a, bEdge.b, finPos ) ){
+            break;
+        }
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Extend points for better cutting when using it gets
+    // extruded into a polyline
+    const len = Vec2.dist( aPos, finPos );
+    aPos.add( aDir.negate().scale( len ) );
+    finPos.add( bDir.scale( len ) );
+
+    // Debug.pnt.add( bendPos.toVec3(), 0xffffff, 2, 1 );
+    // Debug.pnt.add( finPos.toVec3(), 0xffffff, 2, 1 );
+    // Debug.pnt.add( aPos.toVec3(), 0xffffff, 2, 1 );
+
+    return [ aPos, bendPos, finPos ];
+}
+
+// Use a bent bisection to cut a polygon
+function bentSegmentCut( pnts, p0, p1, p2, getLeft=true ){
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Find all the edges that intersect the segment
+    const aHits = [];
+    const bHits = [];
+    const p     = new Vec2(); 
+    let ii;
+    
+    for( let i=0; i < pnts.length; i++ ){
+        ii = ( i+1 ) % pnts.length;
+
+        // Debug.pnt.add( pnts[i].toVec3(), 0xffff00, 3 );
+        // Debug.pnt.add( pnts[ii].toVec3(), 0xffff00, 5 );
+        // console.log( p );
+
+        if( Line2D.intersectingSegments( p1, p0, pnts[i], pnts[ii], p ) ){
+            aHits.push( { pos: p.clone(), i:i, ii:ii } );
+            // Debug.pnt.add( p.toVec3(), 0xffff00, 3, i );
+        }
+
+        if( Line2D.intersectingSegments( p1, p2, pnts[i], pnts[ii], p ) ){
+            bHits.push( { pos: p.clone(), i:i, ii:ii } );
+            // Debug.pnt.add( p.toVec3(), 0x00ffff, 3, i );
+        }
+    }
+
+    // console.log( aHits, bHits );
+    // If not 2 intersections then its not a good half slice
+    if( aHits.length !== 1 || bHits.length !== 1 ) return null;
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Create two polygons from the intersection slice
+    const a = aHits[ 0 ];
+    const b = bHits[ 0 ];
+
+    // console.log( a, b, Line2D.isLeft( p0, p1, pnts[ a.ii ] ), getLeft );
+
+    // Debug.pnt.add(  pnts[ a.ii ].toVec3(), 0xffffff, 3  );
+
+    if( getLeft === isLeft( p0, p1, pnts[ a.ii ] ) ){
+        return ( a.ii === b.i )
+            ? [ a.pos, pnts[ a.ii ], b.pos, p1 ]
+            : ( a.ii < b.i )
+                ? [ a.pos, ...pnts.slice( a.ii, b.i+1 ), b.pos, p1 ]
+                : [ a.pos, ...pnts.slice( a.ii ), ...pnts.slice( 0, b.i+1 ), b.pos, p1 ];
+    }else{
+        return ( b.ii < a.i )
+            ? [ b.pos, ...pnts.slice( b.ii, a.i+1 ), a.pos, p1 ]
+            : [ b.pos, ...pnts.slice( b.ii ), ...pnts.slice( 0, a.i+1 ), a.pos, p1 ];
+    }
+}
+
+// Use a single segment to cut a polygon
+function segmentCut( pnts, p0, p1, getLeft=true ){
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Find all the edges that intersect the segment
+    const hits = [];
+    let p ;
+    let ii;
+    
+    for( let i=0; i < pnts.length; i++ ){
+        ii = ( i+1 ) % pnts.length;
+        p  = Line2D.intersectingSegments( p0, p1, pnts[i], pnts[ii] );
+
+        if( p ) hits.push({ pos: new Vec2( p ), i:i, ii:ii });
+    }
+
+    // If not 2 intersections then its not a good half slice
+    if( hits.length !== 2 ) return null;
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Create two polygons from the intersection slice
+    const [ a, b ] = hits;
+
+
+    // Debug.pnt.add( p0.toVec3(true, 0.2), 0xffff00, 3, 1 );
+    // Debug.pnt.add( p1.toVec3(true, 0.2), 0x00ffff, 3, 1 );
+    // Debug.pnt.add( pnts[ a.ii ].toVec3(true, 0.2), 0xffffff, 3, 1 );
+
+    if( getLeft === isLeft( p0, p1, pnts[ a.ii ] ) ){
+        // console.log( 'left' )
+
+        return ( a.ii === b.i )
+            ? [ a.pos, pnts[ a.ii ], b.pos ]
+            : ( a.ii < b.i )
+                ? [ a.pos, ...pnts.slice( a.ii, b.i+1 ), b.pos ]
+                : [ a.pos, ...pnts.slice( a.ii ), ...pnts.slice( 0, b.i+1 ), b.pos ]
+
+    }else{
+        // console.log( 'right', a.ii < b.i )
+
+        return ( b.ii < a.i )
+            ? [ b.pos, ...pnts.slice( b.ii, a.i+1 ), a.pos ]
+            : [ b.pos, ...pnts.slice( b.ii ), ...pnts.slice( 0, a.i+1 ), a.pos ];
+
+    }
+}
+
+// #endregion
+
+
+</script></body></html>

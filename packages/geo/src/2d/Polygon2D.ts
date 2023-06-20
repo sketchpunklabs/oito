@@ -259,6 +259,95 @@ export default class Polygon2D{
 
 
 /*
+
+
+function iterEdges( pnts, isClosed=true ){
+    const cnt     = pnts.length;
+    const len     = ( isClosed )? cnt : cnt-1;    
+    const v       = { a:pnts[ 0 ], b:pnts[ 0 ], ai:0, bi:1 };
+    const result  = { value:v, done:false };
+
+    const next    = ()=>{
+        if( v.ai >= len ) result.done = true;
+        else{
+            v.a = pnts[ v.ai ];
+            v.b = pnts[ v.bi ];
+            v.ai++;
+            v.bi = ( v.bi + 1 ) % cnt;
+        }
+        return result;
+    };
+
+    return { [Symbol.iterator](){ return { next }; } };
+}
+
+function sortPolygonPoints( pnts, asCCW=true ){
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Compute Centroid
+    const cent = new Vec2();
+    for( const p of pnts ) cent.add( p );
+    cent.divScale( pnts.length );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Compute point angles
+    let ang; 
+
+    const a   = new Vec2();
+    const b   = new Vec2();
+    const rtn = [ { ang:0, p:pnts[0] } ]; // First point will be angle 0
+
+    a.fromSub( pnts[0], cent ); // Focal Vector for angle computation
+
+    for( let i=1; i < pnts.length; i++ ){
+        // Get angle from first point
+        b.fromSub( pnts[i], cent );
+        ang = Vec2.angleTo( a, b );
+
+        // remap values -180:180 to 0:360
+        if( ang < 0 ) ang = Math.PI * 2 + ang;
+        
+        rtn.push( { ang, p:pnts[i] } );
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    return rtn.sort( asCCW
+        ? ( a, b )=>( a.ang === b.ang )? 0 : ( a.ang < b.ang )? 1 : -1
+        : ( a, b )=>( a.ang === b.ang )? 0 : ( a.ang < b.ang )? -1 : 1
+    ).map( i=>i.p );
+}
+
+function simplifyPolySegments( pnts, h ){
+    const cnt = pnts.length;
+    const a   = new Vec2();
+    const b   = new Vec2();
+    const rtn = [];
+    let i=0;
+    let j=0;
+    let k=0;
+
+    while( j < pnts.length ){
+        i = ( j - 1 + cnt ) % cnt;  // Previous Point
+        k = ( j + 1 ) % cnt;        // Next Point
+
+        a.fromSub( pnts[i], pnts[j] ).norm();
+        b.fromSub( pnts[k], pnts[j] ).norm();
+
+        Debug.pnt.add( pnts[j].toVec3( true, h ), 0xff0000, 2 );
+
+        // console.log( i, j, k, Vec2.dot( a, b ) );
+
+        if( Math.abs( Vec2.dot( a, b ) ) < 0.99 ){
+            Debug.pnt.add( pnts[j].toVec3( true, h ), 0xffffff, 2.5 );
+            rtn.push( pnts[j] );
+        }
+        j++;
+    }
+
+    return rtn;
+}
+
+
+
 https://github.com/FreyaHolmer/Mathfs/blob/master/Runtime/Geometric%20Shapes/Polygon.cs
 
 public float SignedArea {

@@ -1,0 +1,338 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+// #region IMPORTS
+import useThreeWebGL2, { THREE, useDarkScene, useVisualDebug } from '../../_lib/useThreeWebGL2.js';
+import Util         from '../../_lib/misc/Util.js';
+import noise        from '../../_lib/thirdparty/perlin.js';
+
+import { Grid }     from '../../../packages/geo/src/index.ts';
+import { Vec2 }     from '../../../packages/oop/src/index.ts';
+// #endregion
+
+//#region MAIN
+let App   = useDarkScene( useThreeWebGL2() );
+let Debug = {};
+let Ref   = {};
+
+window.addEventListener( 'load', async _=>{
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Setup
+    App.sphericalLook( 0, 40, 4 );
+    Debug = await useVisualDebug( App );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const size  = 2;
+    const res   = 10;
+    const H     = 2;
+    const L     = 0.1;
+
+    const state = new Array( (res+1)**2 );
+    console.log( state.length );
+
+    const geo   = Grid.create( { width:size, height:size, cols:res, rows:res, center:true } );
+    console.log( 'vertCount', geo.vertices.length / 3, (res+1)**2 );
+    
+    applyNoiseHeight( geo.vertices, H, res, 0.14 );
+    getLevel( geo.vertices, L, state );
+    const grps  = findGroups( geo.vertices, state, res, L );
+    const polys = groupsToPoly( grps, geo.vertices, res, L );
+    sortPolygons( polys, L );
+
+
+    const bGeo = Util.geoBuffer( geo );
+    const mesh = new THREE.Mesh( bGeo, new THREE.MeshBasicMaterial( { color:0x707070, flatShading:false, wireframe:true } ) ); //  side:THREE.DoubleSide,
+    // mesh.position.y = 0.01;
+    App.scene.add( mesh );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    App.renderLoop();
+});
+
+// #endregion
+
+function applyNoiseHeight( verts, maxHeight, res=10, freq=0.14 ){    
+    const size  = res + 1;       // Res is in cell count, we need in point count
+    const cnt   = verts.length;
+    const coord = [0,0];
+
+    let j = 0;
+    let n = 0;
+    
+    for( let i=1; i < cnt; i+=3 ){
+        idxCoord( j, size, coord );
+        n = noise.perlin2( coord[0] * freq, coord[1] * freq );
+
+        verts[ i ] = n * maxHeight;
+        j++;
+    }
+}
+
+function getLevel( verts, height, state ){
+    const cnt  = verts.length;
+    const v    = [0,0,0];
+    let j      = 0;
+
+    for( let i=0; i < cnt; i+=3 ){
+        if( verts[ i+1 ] >= height ){
+            // v[ 0 ] = verts[ i+0 ];
+            // v[ 1 ] = height; //verts[ i+1 ];
+            // v[ 2 ] = verts[ i+2 ];
+            // Debug.pnt.add( v, 0xc0c0c0, 3 );
+            state[ j ] = 1;
+        }else{
+            state[ j ] = 0;
+        }
+
+        j++;
+    }
+}
+
+function findGroups( verts, state, res, height ){
+    const colors = [ 0xff0000, 0xffff00, 0xff00ff, 0x00ffff ];
+    const size = res + 1;
+    const grp  = new Array( state.length ).fill( -1 );
+    const v    = [0,0,0];
+    let   gCnt = 0;
+    let   gIdx = 0;
+    let   j    = 0;
+    let   n;
+
+    for( let i=0; i < state.length; i++ ){
+        if( state[i] ){
+            // n = getIdxNeighbors( i, size );
+            n = getAllNeighbors( i, size );
+
+            // ------------------------------------
+            // Check if point is part of a group
+            gIdx = -1;
+            for( const k of n ) gIdx = Math.max( gIdx, grp[ k ] );
+
+            // ------------------------------------
+            // New Group Found
+            if( gIdx === -1 ) gIdx = gCnt++;
+            grp[ i ] = gIdx;
+
+            // ------------------------------------
+            j    = i * 3;
+            // v[0] = verts[j+0];
+            // v[1] = height; //verts[j+1];
+            // v[2] = verts[j+2];
+            // Debug.pnt.add( v, colors[gIdx], 2 );
+        }
+    }
+
+    return grp;
+}
+
+function groupsToPoly( grps, verts, res, height ){
+    const colors = [ 0xff0000, 0xffff00, 0xff00ff, 0x00ffff ];
+    const size   = res + 1;
+    const coord  = [0,0];
+    const v      = [0,0,0];
+    const poly   = {};
+
+    let isEdge;
+    let gNum;
+    let n;
+    let j;
+    let k;
+
+    for( let i=0; i < grps.length; i++ ){
+        if( grps[i] !== -1 ){
+            isEdge = false;
+            idxCoord( i, size, coord );
+
+            // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            // If point is on the edge if the grid, then its also a poly edge
+            if( coord[0] === 0 || coord[1] === 0 || coord[0] === res || coord[1] === res ){
+                isEdge = true;
+            }else{
+                // if not grid edge, test neighbors if all neighbors are in 
+                // the group then this point is inside the poly & not a poly edge
+                n = getIdxNeighbors( i, size );
+                for( k of n ){
+                    if( grps[ k ] === -1 ){ isEdge = true; break; }
+                }
+            }
+
+            if( !isEdge ) continue;
+
+            // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            gNum = grps[ i ];
+            j    = i * 3;
+
+            if( !poly[gNum] ) poly[gNum] = [];
+            poly[gNum].push( new Vec2( verts[j+0], verts[j+2] ) );
+
+            // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            // v[0] = verts[j+0];
+            // v[1] = height; //verts[j+1];
+            // v[2] = verts[j+2];
+            // Debug.pnt.add( v, colors[ gNum ], 3, 0 );
+        }
+    }
+
+    // Filter out polygons that have less then 3 points.
+    const rtn = [];
+    for( const p of Object.values( poly ) ){
+        if( p.length >=3 ) rtn.push( p );
+    }
+
+    // return Array.from( Object.values( poly ) );
+    return rtn;
+}
+
+function sortPolygons( polys, height ){
+    let i=0;
+    for( let p of polys ){
+
+        // if( i == 2 ){
+            p = polygonSort( p, height );
+            p = filterSegments( p, height );
+
+            for( let e of iterEdges( p ) ){
+                // Debug.pnt.add( e.a.toVec3( true, height ), 0x00ff00, 2 );
+                // Debug.ln.add( e.a.toVec3( true, height ), e.b.toVec3( true, height ), 0x00ff00 );
+                Debug.ln.add( e.a.toVec3( true, height ), e.b.toVec3( true, height ), 0xffffff );
+            }
+        // }
+
+        i++
+        // break;
+    }
+}
+
+function polygonSort( pnts, height ){
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Compute Centroid
+    const cent = new Vec2();
+    for( const p of pnts ) cent.add( p );
+    cent.divScale( pnts.length );
+
+    Debug.pnt.add( cent.toVec3( true, height ), 0xff00ff, 2 );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const a   = new Vec2();
+    const b   = new Vec2();
+    const rtn = [ { ang:0, p:pnts[0] } ];
+    let ang; 
+
+    a.fromSub( pnts[0], cent );
+
+    for( let i=1; i < pnts.length; i++ ){
+        // Get angle from first point, remap values
+        // -180:180 to 0:360
+        b.fromSub( pnts[i], cent );
+        ang = Vec2.angleTo( a, b );
+        if( ang < 0 ) ang = Math.PI * 2 + ang;
+        
+        rtn.push( { ang, p:pnts[i] } );
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const fnCW  = ( a, b )=>( a.ang === b.ang )? 0 : ( a.ang < b.ang )? -1 : 1;
+    const fnCCW = ( a, b )=>( a.ang === b.ang )? 0 : ( a.ang < b.ang )? 1 : -1;
+    rtn.sort( fnCCW );
+    return rtn.map( i=>i.p );
+}
+
+function filterSegments( pnts, height ){
+    const cnt = pnts.length;
+    const a   = new Vec2();
+    const b   = new Vec2();
+    const rtn = [];
+    let i=0;
+    let j=0;
+    let k=0;
+
+    while( j < pnts.length ){
+        i = ( j - 1 + cnt ) % cnt;  // Previous Point
+        k = ( j + 1 ) % cnt;        // Next Point
+
+        a.fromSub( pnts[i], pnts[j] ).norm();
+        b.fromSub( pnts[k], pnts[j] ).norm();
+
+        Debug.pnt.add( pnts[j].toVec3( true, height ), 0xff0000, 2 );
+
+        // console.log( i, j, k, Vec2.dot( a, b ) );
+
+        if( Math.abs( Vec2.dot( a, b ) ) < 0.99 ){
+            
+            Debug.pnt.add( pnts[j].toVec3( true, height ), 0xffffff, 2.5 );
+            rtn.push( pnts[j] );
+        }
+        j++;
+    }
+
+    return rtn;
+}
+
+// #region GRID HELPERS
+function coordIdx( v, size ){ return size * v[1] + v[0]; }
+function idxCoord( i, size, out=[0,0] ){
+    out[1] = Math.floor( i / size );  
+    out[0] = i - out[1] * size;
+    return out;
+}
+
+function getIdxNeighbors( i, size ){
+    const max   = size - 1;
+    const coord = idxCoord( i, size );
+    const v     = new Vec2();
+    const rtn   = [];
+
+    if( coord[0] > 0 )   rtn.push( coordIdx( v.fromAdd( coord, [-1,0] ), size ) );
+    if( coord[0] < max ) rtn.push( coordIdx( v.fromAdd( coord, [1,0] ),  size ) );
+    if( coord[1] > 0 )   rtn.push( coordIdx( v.fromAdd( coord, [0,-1] ), size ) );
+    if( coord[1] < max ) rtn.push( coordIdx( v.fromAdd( coord, [0,1] ),  size ) );
+
+    return rtn;
+}
+
+function getAllNeighbors( i, size ){
+    const max   = size - 1;
+    const coord = idxCoord( i, size );
+    const v     = new Vec2();
+    const rtn   = [];
+
+    const dir   = [
+        [-1,-1], [0,-1], [1,-1],
+        [-1, 0],         [1, 0],
+        [-1, 1], [0, 1], [1, 1],
+    ];
+
+    for( const d of dir ){
+        v.fromAdd( coord, d );
+        if( v[0] >=0 && v[0] <= max && v[1] >=0 && v[1] <= max ){
+            rtn.push( coordIdx( v, size ) );
+        }
+    }
+
+    return rtn;
+}
+// #endregion
+
+
+
+function iterEdges( pnts, isClosed=true ){
+    const cnt     = pnts.length;
+    const len     = ( isClosed )? cnt : cnt-1;    
+    const v       = { a:pnts[ 0 ], b:pnts[ 0 ], ai:0, bi:1 };
+    const result  = { value:v, done:false };
+
+    const next    = ()=>{
+        if( v.ai >= len ) result.done = true;
+        else{
+            v.a = pnts[ v.ai ];
+            v.b = pnts[ v.bi ];
+            v.ai++;
+            v.bi = ( v.bi + 1 ) % cnt;
+        }
+        return result;
+    };
+
+    return { [Symbol.iterator](){ return { next }; } };
+}
+
+</script></body></html>

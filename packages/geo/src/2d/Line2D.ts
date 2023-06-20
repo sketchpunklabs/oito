@@ -1,3 +1,5 @@
+import { Vec2 } from '@oito/oop';
+
 export default class Line2D{
 
     // #region INTERSECTIONS
@@ -58,6 +60,20 @@ export default class Line2D{
         return null;
     }
 
+    static isPointOnSegment( a0:ConstVec2, a1:ConstVec2, p: ConstVec2, epsilon: number = 0.001  ): boolean{
+        // Note: Tried using distance Squared & squaring epsilon, it doesn't work very well. Only works
+        // when dealing with actual lengths
+        const toStart = Vec2.dist( a0, p );
+        const toEnd   = Vec2.dist( a1, p );
+        const segLen  = Vec2.dist( a1, a0 );
+    
+        return (
+            Math.abs( toStart + toEnd - segLen ) < epsilon 
+            && toStart < segLen + epsilon 
+            && toEnd   < segLen + epsilon
+        );
+    }
+
     /*
     function isPointOnSegment(
         point: Vector3,
@@ -75,6 +91,43 @@ export default class Line2D{
             distanceEndToPoint < segmentLength + epsilon
         )
     }
+
+    https://lucidar.me/en/mathematics/check-if-a-point-belongs-on-a-line-segment/
+    * \brief rOc_segment::isPointOnSegment check if a point is inside the current segment
+    * \param point coordinates of the point to test
+    * \return  ROC_SEGMENT_INTERSEC_NONE if the point doesn't lay with the segment
+    *          ROC_SEGMENT_INTERSEC_EXTREMITY_P1 if the point is merged with P1
+    *          ROC_SEGMENT_INTERSEC_EXTREMITY_P2 if the point is merged with P2
+    *          ROC_SEGMENT_INTERSEC_CROSS if the point belongs to the segment (extremity no included)
+    
+    char rOc_segment::isPointOnSegment(rOc_point point)
+    {
+        // A and B are the extremities of the current segment
+        // C is the point to check
+
+        // Create the vector AB
+        rOc_vector AB=this->vector();
+        // Create the vector AC
+        rOc_vector AC=rOc_vector(this->point1(),point);
+
+        // Compute the cross product of VA and PAP
+        // Check if the three points are aligned (cross product is null)
+        if (!( AB.cross(AC).isNull())) return ROC_SEGMENT_INTERSEC_NONE;
+
+        // Compute the dot product of vectors
+        double KAC = AB.dot(AC);
+        if (KAC<0) return ROC_SEGMENT_INTERSEC_NONE; 
+        if (KAC==0) return ROC_SEGMENT_INTERSEC_EXTREMITY_P1; 
+
+        // Compute the square of the segment length 
+        double KAB=AB.dot(AB); 
+        if (KAC>KAB) return ROC_SEGMENT_INTERSEC_NONE;
+        if (KAC==KAB) return ROC_SEGMENT_INTERSEC_EXTREMITY_P2;
+
+        // The point is on the segment
+        return ROC_SEGMENT_INTERSEC_CROSS;
+    }
+
     */
     // #endregion
 

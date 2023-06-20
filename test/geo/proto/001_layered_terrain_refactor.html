@@ -1,0 +1,553 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+// #region IMPORTS
+import useThreeWebGL2, { THREE, useDarkScene, useVisualDebug } from '../../_lib/useThreeWebGL2.js';
+import Util         from '../../_lib/misc/Util.js';
+import noise        from '../../_lib/thirdparty/perlin.js';
+import earcut       from '../../_lib/thirdparty/earcut.js';
+
+import { Grid }     from '../../../packages/geo/src/index.ts';
+import { Vec2, Vec3 }    
+                    from '../../../packages/oop/src/index.ts';
+// #endregion
+
+//#region MAIN
+let App   = useDarkScene( useThreeWebGL2() );
+let Debug = {};
+let Ref   = {};
+
+window.addEventListener( 'load', async _=>{
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Setup
+    App.sphericalLook( 11, 40, 7, [1,0,1] );
+    Debug = await useVisualDebug( App );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const size  = 2;
+    const freq  = 0.14;
+    const res   = 10;
+    const H     = 2;
+    const L     = 0.1;
+
+    const geo   = Grid.create( { width:size, height:size, cols:res, rows:res, center:false } );
+    applyNoiseHeight( geo.vertices, H, res, freq );
+
+    const bGeo = Util.geoBuffer( geo );
+    const mesh = new THREE.Mesh( bGeo, new THREE.MeshBasicMaterial( { color:0x707070, flatShading:false, wireframe:true } ) ); //  side:THREE.DoubleSide,
+    mesh.position.y = 0.01;
+    App.scene.add( mesh );
+
+    const pLevel = new PolyGridLevel( geo.vertices, res );
+
+    let steps = 0.1;
+    for( let i=0; i < 5; i++ ){
+        const min = i * steps;
+        const max = min + steps;
+
+        const aryGeo = pLevel.heightGen( min, max );
+
+        if( aryGeo ){
+            for( const geo of aryGeo ){
+                const bGeo = Util.geoBuffer( geo );
+                bGeo.computeVertexNormals();
+
+                const mesh = new THREE.Mesh( bGeo, new THREE.MeshPhongMaterial( { color:0x00ffff, flatShading:false } ) ); //  side:THREE.DoubleSide,
+                App.scene.add( mesh );
+            }
+        }else{
+            break;
+        }
+
+    }
+
+    
+
+
+
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    App.renderLoop();
+});
+
+// #endregion
+
+// #region TERRAIN NOISE
+function idxCoord( i, size, out=[0,0] ){
+    out[1] = Math.floor( i / size );  
+    out[0] = i - out[1] * size;
+    return out;
+}
+
+function applyNoiseHeight( verts, maxHeight, res=10, freq=0.14 ){    
+    const size  = res + 1;       // Res is in cell count, we need in point count
+    const cnt   = verts.length;
+    const coord = [0,0];
+
+    let j = 0;
+    let n = 0;
+    
+    for( let i=1; i < cnt; i+=3 ){
+        idxCoord( j, size, coord );
+        n = noise.perlin2( coord[0] * freq, coord[1] * freq );
+
+        verts[ i ] = n * maxHeight;
+        j++;
+    }
+}
+// #endregion
+
+// #region 2D POLYGON HELPERS
+
+function iterEdges( pnts, isClosed=true ){
+    const cnt     = pnts.length;
+    const len     = ( isClosed )? cnt : cnt-1;    
+    const v       = { a:pnts[ 0 ], b:pnts[ 0 ], ai:0, bi:1 };
+    const result  = { value:v, done:false };
+
+    const next    = ()=>{
+        if( v.ai >= len ) result.done = true;
+        else{
+            v.a = pnts[ v.ai ];
+            v.b = pnts[ v.bi ];
+            v.ai++;
+            v.bi = ( v.bi + 1 ) % cnt;
+        }
+        return result;
+    };
+
+    return { [Symbol.iterator](){ return { next }; } };
+}
+
+function sortPolygonPoints( pnts, asCCW=true ){
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Compute Centroid
+    const cent = new Vec2();
+    for( const p of pnts ) cent.add( p );
+    cent.divScale( pnts.length );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Compute point angles
+    let ang; 
+
+    const a   = new Vec2();
+    const b   = new Vec2();
+    const rtn = [ { ang:0, p:pnts[0] } ]; // First point will be angle 0
+
+    a.fromSub( pnts[0], cent ); // Focal Vector for angle computation
+
+    for( let i=1; i < pnts.length; i++ ){
+        // Get angle from first point
+        b.fromSub( pnts[i], cent );
+        ang = Vec2.angleTo( a, b );
+
+        // remap values -180:180 to 0:360
+        if( ang < 0 ) ang = Math.PI * 2 + ang;
+        
+        rtn.push( { ang, p:pnts[i] } );
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    return rtn.sort( asCCW
+        ? ( a, b )=>( a.ang === b.ang )? 0 : ( a.ang < b.ang )? 1 : -1
+        : ( a, b )=>( a.ang === b.ang )? 0 : ( a.ang < b.ang )? -1 : 1
+    ).map( i=>i.p );
+}
+
+function simplifyPolySegments( pnts, h ){
+    const cnt = pnts.length;
+    const a   = new Vec2();
+    const b   = new Vec2();
+    const rtn = [];
+    let i=0;
+    let j=0;
+    let k=0;
+
+    while( j < pnts.length ){
+        i = ( j - 1 + cnt ) % cnt;  // Previous Point
+        k = ( j + 1 ) % cnt;        // Next Point
+
+        a.fromSub( pnts[i], pnts[j] ).norm();
+        b.fromSub( pnts[k], pnts[j] ).norm();
+
+        // Debug.pnt.add( pnts[j].toVec3( true, h ), 0xff0000, 2 );
+
+        // console.log( i, j, k, Vec2.dot( a, b ) );
+
+        if( Math.abs( Vec2.dot( a, b ) ) < 0.99 ){
+            // Debug.pnt.add( pnts[j].toVec3( true, h ), 0xffffff, 2.5 );
+            rtn.push( pnts[j] );
+        }
+        j++;
+    }
+
+    return rtn;
+}
+
+// #endregion
+
+
+// #region EXTRUDE
+
+function polyExtrude( shape, bot, top ){
+    const flat      = toFlatBuffer( shape, false );
+    const vertCnt   = shape.length;
+    const indices   = earcut( flat, null, 2 );
+    const vertices  = [];
+
+    if( !isClockwise( shape ) ) flipIndiceWinding( indices );
+
+    // Generate 3D Vertices for Top Face and Wall
+    for( const p of shape ) vertices.push( p[0], top, p[1] );    // Face
+    for( const p of shape ) vertices.push( p[0], top, p[1] );    // Wall Top
+    for( const p of shape ) vertices.push( p[0], bot, p[1] );       // Wall Bot
+
+    gridIndices( indices, vertCnt, 1, vertCnt, 1, false );
+
+    return { vertices, indices };
+}
+
+function isClockwise( pnts ){
+    // https://www.baeldung.com/cs/list-polygon-points-clockwise#2-area-of-polygon
+    const end  = pnts.length-1;
+    let sum    = 0;
+    let ii;
+
+    for (let i = 0; i < end; i++){
+        ii  = i+1;
+        sum += pnts[i][0] * pnts[ii][1] - pnts[i][1] * pnts[ii][0];
+    }
+
+    return ( sum >= 0 );
+}
+
+// cell col count, cell row count, loop=0:no, 1:col, 2:row
+function gridIndices( out, cSize, rSize, initIdx=0, loop=0, revQuad=false ){
+    const cEnd = ( loop === 1 )? cSize : cSize - 1;
+    let ra, rb;
+    let i, j, k;
+    let a, b, c, d;
+
+    for( i=0; i < rSize; i++ ){
+        ra = initIdx + cSize * i;
+        rb = initIdx + cSize * ( i + 1 );
+
+        for( j=0; j < cEnd; j++ ){
+            k   = ( j + 1 ) % cSize;
+            a 	= ra + j;	
+            b   = rb + j;
+            c   = rb + k;
+            d   = ra + k;
+
+            if( !revQuad ) out.push( a,b,c, c,d,a ); // Counter Clockwise
+            else 		   out.push( a,d,c, c,b,a ); // Clockwise
+        }
+    }
+
+    return out;
+}
+
+// flip the winding order of each triangle set of indices
+function flipIndiceWinding( out ){
+    let x;
+    for( let i=0; i < out.length; i+=3 ){
+        x           = out[ i ];
+        out[ i ]    = out[ i+2 ];
+        out[ i+2 ]  = x;
+    }
+}
+
+// Flatten Vec2 array data
+function toFlatBuffer( ary, isType=true ){
+    const cnt   = ary.length;
+    const buf   = ( isType )
+        ? new Float32Array( cnt * 2 )
+        : new Array( cnt * 2 );
+    
+    let i = 0;
+    for( const p of ary ){
+        buf[i++] = p[ 0 ];
+        buf[i++] = p[ 1 ];
+    }
+
+    return buf;
+}
+
+// #endregion
+
+class PolyGridLevel{
+    // #region MAIN
+    constructor( verts, cellRes ){
+        this.verts      = verts;
+        this.vertCnt    = verts.length / 3;
+        this.grid       = new GridState( cellRes+1, 1, cellRes+1 ); // Cell to Point Change ( +1 )
+    }
+    // #endregion
+
+    // #region METHODS
+    heightGen( min, max ){
+        const h = max;
+        this.grid.resetState();
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // GEN POLYGONS POINTS FROM HEIGHT
+
+        if( this.findMinHeightPoints( h ) === 0 ){ 
+            console.log( 'No points found with min height of ', h ); 
+            return;
+        }
+
+        const groups = this.findPointGroups( h );
+        if( groups.length === 0 ){
+            console.log( 'No points groups found with min height of ', h ); 
+            return;
+        }
+
+        const polys = this.groupsToPolys( groups, h );
+        if( polys.length === 0 ){
+            console.log( 'No polygons found with min height of ', h ); 
+            return;
+        }
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // CLEANUP POLYGON DATA
+
+        const aryGeo = [];
+
+        for( let i=0; i < polys.length; i++ ){
+            polys[i] = sortPolygonPoints( polys[i], true );
+            polys[i] = simplifyPolySegments( polys[i], h );
+
+            if( polys[i].length < 3 ){
+                console.log( 'Cleanup process removed polygon #', i );
+            }else{
+                // Debug final polygon
+                // for( let e of iterEdges( polys[i] ) ){
+                //     Debug.pnt.add( e.a.toVec3( true, h ), 0xffffff, 2 );
+                //     Debug.ln.add( e.a.toVec3( true, h ), e.b.toVec3( true, h ), 0xffffff );
+                // }
+
+                aryGeo.push( polyExtrude( polys[i], min, max ) );
+            }
+        }
+
+        return aryGeo;
+    }
+    // #endregion
+
+    // #region PROCESSING STEPS
+
+    findMinHeightPoints( h ){
+        const verts = this.verts;
+        const cnt   = this.verts.length;
+        let j       = 0;
+        let rtn     = 0;
+
+        for( let i=0; i < cnt; i+=3 ){
+            if( verts[ i+1 ] >= h ){
+                // const v = [ verts[ i+0 ], h, verts[ i+2 ] ];
+                // Debug.pnt.add( v, 0xc0c0c0, 3 );
+                this.grid.state[ j ] = 1;
+                rtn++;
+            }
+            j++;
+        }
+
+        return rtn;
+    }
+
+    findPointGroups( h ){
+        const colors = [ 0xff0000, 0xffff00, 0xff00ff, 0x00ffff ];  // TODO - 4 Debugging only
+        const grp  = new Array( this.grid.state.length ).fill( -1 );
+        let   gCnt = 0;
+        let   gIdx = 0;
+        let   niAry;
+        let   ni;
+
+        for( let i=0; i < this.grid.state.length; i++ ){
+            if( this.grid.state[ i ] ){
+
+                // console.log( 'isOn', i );
+                // n = getIdxNeighbors( i, size );
+                niAry = this.grid.get9PatchLevelNeighborsFromIndex( i );
+
+                // ------------------------------------
+                // // Check if point is part of a group
+                gIdx = -1;
+                for( ni of niAry ) gIdx = Math.max( gIdx, grp[ ni ] );
+
+                // ------------------------------------
+                // New Group Found
+                if( gIdx === -1 ) gIdx = gCnt++;
+                grp[ i ] = gIdx;
+
+                // ------------------------------------
+                // Debug
+                // const j    = i * 3;
+                // const v    = [0,0,0];
+                // v[0] = this.verts[j+0];
+                // v[1] = h;
+                // v[2] = this.verts[j+2];
+                // Debug.pnt.add( v, colors[gIdx], 2 );
+            }
+        }
+
+        return grp;
+    }
+
+    groupsToPolys( grps, h ){
+        const colors = [ 0xff0000, 0xffff00, 0xff00ff, 0x00ffff ]; // TODO - For Debug only
+        
+        const cMax   = this.grid.dimension[0] - 1; // Max XZ Coordinate
+        const coord  = [0,0,0 ];
+        const poly   = {};
+        
+        let isEdge;
+        let gNum;   // Group Number
+        let niAry;
+        let ni;
+        let j;
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        for( let i=0; i < grps.length; i++ ){
+            if( grps[i] !== -1 ){
+                isEdge = false;
+                this.grid.idxCoord( i, coord );
+
+                // ----------------------------------
+                // If point is on the edge if the grid, then its also a poly edge
+                if( coord[0] === 0 || coord[2] === 0 || coord[0] === cMax || coord[2] === cMax ){
+                    isEdge = true;
+                }else{
+                    // if not grid edge, test neighbors if all neighbors are in 
+                    // the group then this point is inside the poly & not a poly edge
+                    niAry = this.grid.get4LevelNeighborsFromIndex( i );
+                    for( ni of niAry ){
+                        if( grps[ ni ] === -1 ){ isEdge = true; break; }
+                    }
+                }
+
+                if( !isEdge ) continue;
+
+                // ----------------------------------
+                // Save Polygon Points 
+                gNum = grps[ i ];
+                j    = i * 3;
+
+                // Polygon X hasn't been saved yet, create array in object to hold it
+                if( !poly[ gNum ] ) poly[ gNum ] = [];
+
+                // Create 2D Point of the polygon from 3D point. Save only XZ
+                poly[ gNum ].push(
+                    new Vec2( this.verts[ j ], this.verts[ j+2 ] )
+                );
+
+                // ----------------------------------
+                // const v = [ this.verts[j+0], h, this.verts[j+2] ];
+                // Debug.pnt.add( v, colors[ gNum ], 3, 0 );
+            }
+        }
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Filter out polygons that have less then 3 points.
+        const rtn = [];
+        for( const p of Object.values( poly ) ){
+            if( p.length >=3 ) rtn.push( p );
+        }
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        return rtn;
+    }
+
+    // #endregion
+}
+
+class GridState{
+    // #region MAIN
+    cellSize   = 1;
+    offset     = [0,0,0];
+    state      = null;      // On/Off set of each Cell
+    data       = null;      // Store any user data per cell
+    dimension = [0,0,0];    // How Many Cells available at each axis.
+    _xzSize    = 0;         // x cell cnt * z cell cnt
+    
+    constructor( xSize=2, ySize=1, zSize=2 ){
+        this.dimension[ 0 ] = xSize;
+        this.dimension[ 1 ] = ySize;
+        this.dimension[ 2 ] = zSize;
+        this._xzSize         = xSize * zSize;
+        this.state           = new Uint8Array( this._xzSize * ySize );
+    }
+    // #endregion
+
+    // #region NEIGHBORS
+    // Get all 8 neighbors around a cell
+    get9PatchLevelNeighborsFromIndex( i ){
+        return this.getNeighbors( this.idxCoord( i ), [
+            [-1,0,-1], [0,0,-1], [1,0,-1],
+            [-1,0, 0],           [1,0, 0],
+            [-1,0, 1], [0,0, 1], [1,0, 1],
+        ] );
+    }
+
+    // Get only Left/Right/Back/Forward Neighbors
+    get4LevelNeighborsFromIndex( i ){
+        return this.getNeighbors( this.idxCoord( i ), [
+            [0,0,-1],
+            [-1,0,0], [1,0,0],
+            [0,0, 1],
+        ] );
+    }
+
+    getNeighbors( coord, dir ){
+        const v     = new Vec3();
+        const rtn   = [];        
+        for( const d of dir ){
+            v.fromAdd( coord, d );
+            if( v[0] >=0 && v[0] < this.dimension[0] && v[2] >=0 && v[2] < this.dimension[2] ){
+                rtn.push( this.coordIdx( v ) );
+            }
+        }
+
+        return rtn;
+    }
+    // #endregion
+
+    // #region MANAGE STATE
+    resetState(){ this.state.fill( 0 ); return this; }
+
+    setState( coord, isOn=true ){
+        const idx = this.coordIdx( coord );
+        this.state[ idx ] = ( isOn )? 1 : 0;
+        return this;
+    }
+
+    getState( coord ){
+        const idx = this.coordIdx( coord );
+        return ( this.state[ idx ] == 1 );
+    }
+    // #endregion
+
+    // #region COORDINATE MATH
+
+    /** Using Voxel Coordinates, Gets the Cell Array Index */
+    coordIdx( coord ){
+        // ( xLen * zLen * y ) + ( xLen * z ) + x
+        return this._xzSize * coord[1] + this.dimension[0] * coord[2] + coord[0];
+    }
+
+    /** Using Cell Array Index, Compute Voxel Coordinate */
+    idxCoord( i, out=[0,0,0] ){
+        const y     = Math.floor( i / this._xzSize );        // How Many Y Levels Can We Get?
+        const xz    = i - y * this._xzSize;                  // Subtract Y Levels from total, To get remaining Layer
+        const z     = Math.floor( xz / this.dimension[0] ); // How many rows in the last layer can we get?
+        out[0]      = xz - z * this.dimension[0];
+        out[1]      = y;
+        out[2]      = z;
+        return out;
+    }
+
+    // #endregion
+}
+
+</script></body></html>
