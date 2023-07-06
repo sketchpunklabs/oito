@@ -96,6 +96,7 @@ export default class Vec3 extends Array< number >{
     // #endregion
 
     // #region FROM OPERATORS
+
     fromAdd( a: ConstVec3, b: ConstVec3 ): this{
         this[ 0 ] = a[ 0 ] + b[ 0 ];
         this[ 1 ] = a[ 1 ] + b[ 1 ];
@@ -121,6 +122,13 @@ export default class Vec3 extends Array< number >{
         this[ 0 ] = a[ 0 ] * s;
         this[ 1 ] = a[ 1 ] * s;
         this[ 2 ] = a[ 2 ] * s;
+        return this;
+    }
+
+    fromScaleThenAdd( scale: number, a: ConstVec3, b: ConstVec3 ): this{
+        this[0] = a[0] * scale + b[0];
+        this[1] = a[1] * scale + b[1];
+        this[2] = a[2] * scale + b[2];
         return this;
     }
 
@@ -670,6 +678,27 @@ export default class Vec3 extends Array< number >{
         //else if(cosine < -1.0) return Math.PI;
         //else return Math.acos( cosine / ( Math.sqrt( a.lenSqr * b.lenSqr() ) ) );
     }
+
+    /*
+    static angleTo( from: ConstVec3, to: ConstVec3 ): number{
+        // const denom = Math.sqrt( Vec3.lenSqr(from) * Vec3.lenSqr(to) );
+        // if( denom < 0.00001 ) return 0;
+        
+        // const dot  = Math.min( 1, Math.max( -1, Vec3.dot( from, to ) / denom ));
+        // const rad  = Math.acos( dot );
+        // const sign = Math.sign( // Cross Product
+        //     ( from[1] * to[2] - from[2] * to[1] ) + 
+        //     ( from[2] * to[0] - from[0] * to[2] ) +
+        //     ( from[0] * to[1] - from[1] * to[0] )
+        // );
+
+        const d    = this.dot( from, to );
+        const c    = new Vec3().fromCross( from, to );
+        const rad  = Math.atan2( Vec3.len( c ), d );
+        const sign = Math.sign( c[0] + c[1] + c[2] ) || 1;
+        return rad * sign;
+    }
+    */
 
     static scaleThenAdd( scale: number, a: ConstVec3, b: ConstVec3, out:TVec3 = new Vec3() ) {
         out[0] = a[0] * scale + b[0];

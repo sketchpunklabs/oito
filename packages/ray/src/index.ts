@@ -1,3 +1,5 @@
-export function tester2( s: string ): void{
-    console.log( 'fn', s );
-}
+import Frustum from './Frustum';
+
+export {
+    Frustum,
+};

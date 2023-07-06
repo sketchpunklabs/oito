@@ -1,0 +1,111 @@
+function tangentsFromPoints( pnts ){
+    const cnt   = pnts.length;
+    const pDiff = new Vec3();
+    const nDiff = new Vec3();
+    const tan   = new Vec3();
+    const out   = new Array();
+    let i, j, k;
+
+    const tmp   = new Vec3();
+    for( j=0; j < cnt; j++ ){
+        i = ( j - 1 + cnt ) % cnt;
+        k = ( j + 1 ) % cnt;
+
+        if( j==0 ){
+            tan.fromSub( pnts[k], pnts[j] ).norm(); // First Point
+        }else if( k==0 ){
+            tan.fromSub( pnts[j], pnts[i] ).norm(); // Last Point
+        }else{
+            pDiff.fromSub( pnts[j], pnts[i] ); // Prev > Curr
+            nDiff.fromSub( pnts[k], pnts[j] ); // Curr > Next
+            tan
+                .fromAdd( pDiff, nDiff )
+                .scale( 0.5 ) // Average the two points
+                // .norm();
+        }
+
+        out.push( tan.clone() );
+        // Debug.ln.add( pnts[j], tmp.fromScale( tan, 0.8 ).add( pnts[j] ), 0xffffff );
+    }
+
+    return out;
+}
+
+function rmfDoubleReflection( pnts, chain ){
+    const tans = tangentsFromPoints( pnts );
+    const norm = new Vec3();
+    const t = new Vec3();
+    const x = new Vec3();
+    let lnk = chain.links[ 0 ];
+
+    console.log( 'x', chain );
+    const aim   = new Vec3();
+    const twist = new Vec3();
+    const pole  = new Vec3().fromQuat( lnk.world.rot, Vec3.FORWARD );
+    // Debug.ln.add( pnts[i], t.fromScale( pole, 0.3 ).add( pnts[0] ), 0xffff00 );
+
+    const cnt = pnts.length;
+
+    let i, j, k, l;
+    for( j=0; j < chain.count; j++ ){
+        i = ( j - 1 + cnt ) % cnt;
+        k = ( j + 1 ) % cnt;
+        l = ( j + 2 ) % cnt;
+
+        if( j !== -1 ){
+            // Align pole to bone's orientation
+            // Debug.ln.add( pnts[j], t.fromScale( pole, 0.7 ).add( pnts[j] ), 0xff00ff );
+            lnk = chain.links[ j ];
+            aim.fromQuat( lnk.world.rot, Vec3.UP );
+            twist.fromCross( aim, pole );
+            pole.fromCross( twist, aim ).norm();
+
+            // Debug.ln.add( pnts[j], t.fromScale( twist, 0.3 ).add( pnts[j] ), 0xffffff );
+        }
+
+        Debug.ln.add( pnts[j], t.fromScale( pole, 0.3 ).add( pnts[j] ), 0xffff00 );
+        
+        // Double Reflection
+        // const v1 = new Vec3().fromSub( pnts[j+1], pnts[j]  );
+        // const v2 = new Vec3().fromMul( v1, tans[ j ] )
+        // v2.fromAdd( tans[j+1], v2 );
+        // t.fromMul( v2, v1 ).mul( pole );
+        // pole.fromNorm( t );
+
+        // Double Reflection - Stable at smaller increments
+        // const a  = new Vec3().fromAdd( pnts[j], pnts[k] ).scale( 13 );
+        // const b  = new Vec3().fromAdd( pnts[j], pnts[l] );
+        // const v1 = new Vec3().fromSub( a, b );
+        // const v2 = new Vec3().fromMul( v1, tans[ j ] )
+        // v2.fromAdd( tans[j+1], v2 );
+        // t.fromMul( v2, v1 ).mul( pole );
+
+        // Debug.ln.add( pnts[k], x.fromNorm( t ).scale(0.3).add( pnts[k] ), 0xff00ff );
+        // Debug.ln.add( pnts[k], x.fromNorm( pole ).scale(0.3).add( pnts[k] ), 0xffffff );
+        // pole.fromNorm( t );
+        // pole.fromLerp( pole, t, 0.5 ).norm();
+        // Debug.ln.add( pnts[k], x.fromNorm( pole ).scale(0.3).add( pnts[k] ), 0xffffff );
+
+        // Double Reflection - More Complicated Version
+        const v1 = new Vec3().fromSub( pnts[k], pnts[j] );
+        const c1 = Vec3.lenSqr( v1 );
+
+        const rLi = new Vec3().fromScale( v1, 2 / c1 * Vec3.dot( v1, pole ) );
+        rLi.fromSub( pole, rLi );
+
+        const tLi = new Vec3().fromScale( v1, 2 / c1 * Vec3.dot( v1, tans[j] ) );
+        tLi.fromSub( tans[j], tLi );
+
+        const v2 = new Vec3().fromSub( tans[k], tLi );
+        const c2 = Vec3.lenSqr( v2 );
+
+        t.fromScale( v2, 2 / c2 / Vec3.dot( v2, rLi ) );
+        t.fromSub( rLi, t );
+
+        pole.fromNorm( t );
+        // pole.fromLerp( pole, t, 0.5 ).norm();
+
+        // if( j == 1 ) break;
+    }
+    
+}

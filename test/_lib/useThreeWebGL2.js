@@ -83,12 +83,14 @@ export default function useThreeWebGL2( props={} ){
     const renderer = new THREE.WebGLRenderer( options );
     renderer.setPixelRatio( window.devicePixelRatio );
     renderer.setClearColor( 0x3a3a3a, 1 );
+    //if( props.preserveDrawingBuffer ){
     // renderer.autoClearColor = false;
     // renderer.autoClearDepth = false;
     // Manual clearing : r.clearColor(); r.clearDepth();
+    //}
 
     if( props.colorMode ){
-        // React-Fiber changes the default settings which causes big issues trying to map colors 1:1
+        // React-Fiber changes the default settings, the defaults can cause issues trying to map colors 1:1
         // https://docs.pmnd.rs/react-three-fiber/api/canvas#render-defaults
         // https://threejs.org/docs/#manual/en/introduction/Color-management
 
