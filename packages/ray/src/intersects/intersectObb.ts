@@ -13,7 +13,7 @@ export class RayObbResult{
 }
 
 export function intersectObb( ray: Ray, center:ConstVec3, xDir: ConstVec3, yDir: ConstVec3, zDir: ConstVec3, halfLen: ConstVec3, result ?: RayObbResult ): boolean{
-    const rayDelta	= new Vec3( center ).sub( ray.posStart ); // Distance between Ray start and Box Position
+    const rayDelta  = new Vec3( center ).sub( ray.posStart ); // Distance between Ray start and Box Position
     let tMin        = 0;
     let tMax        = 1000000;
     let minAxis     = 0;    // Which axis hit, X:0, Y:1, Z:2
