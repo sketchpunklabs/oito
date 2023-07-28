@@ -71,6 +71,24 @@ class DynLineMesh extends THREE.LineSegments{
         return this;
     }
 
+    circle( origin, xAxis, yAxis, radius, seg, col=this._defaultColor, is_dash=false ){
+        const prevPos = [0,0,0];
+        const pos     = [0,0,0];
+        const PI2     = Math.PI * 2;
+        let rad       = 0;
+
+        planeCircle( origin, xAxis, yAxis, 0, radius, prevPos );
+        for( let i=1; i <= seg; i++ ){
+            rad = PI2 * ( i / seg );
+            planeCircle( origin, xAxis, yAxis, rad, radius, pos );
+            this.add( prevPos, pos, col, null, is_dash );
+
+            prevPos[0] = pos[0];
+            prevPos[1] = pos[1];
+            prevPos[2] = pos[2];
+        }
+    }
+
     _updateGeometry(){
         const geo       = this.geometry;
         const bVerts    = geo.attributes.position;
@@ -108,6 +126,18 @@ class DynLineMesh extends THREE.LineSegments{
         this._dirty = false;
     }
 }
+
+// #region HELPERS
+// X and Y axis need to be normalized vectors, 90 degrees of eachother.
+function planeCircle( vecCenter, xAxis, yAxis, angle, radius, out ){
+    const sin = Math.sin(angle);
+    const cos = Math.cos(angle);
+    out[0] = vecCenter[0] + radius * cos * xAxis[0] + radius * sin * yAxis[0];
+    out[1] = vecCenter[1] + radius * cos * xAxis[1] + radius * sin * yAxis[1];
+    out[2] = vecCenter[2] + radius * cos * xAxis[2] + radius * sin * yAxis[2];
+    return out;
+}
+// #endregion
 
 //#region SUPPORT 
 function _newDynLineMeshGeometry( aVerts, aColor, aConfig, doCompute=true ){

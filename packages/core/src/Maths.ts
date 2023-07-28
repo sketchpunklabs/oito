@@ -144,6 +144,14 @@ export default class Maths{
         return function(){ return (seed = lcg( seed )) / 2147483648; }
     }
 
+    // https://www.cyanilux.com/tutorials/rain-effects-breakdown/
+    // // Returns a random 2D vector
+    // float2 voronoi_randomVector (float2 UV, float offset) {
+    //     float2x2 m = float2x2(15.27, 47.63, 99.41, 89.98);
+    //     UV = frac(sin(mul(UV, m)) * 46839.32);
+    //     return float2(sin(UV.y*+offset)*0.5+0.5, cos(UV.x*offset)*0.5+0.5);
+    // }
+
     //#endregion
 
     // #region LOOPS

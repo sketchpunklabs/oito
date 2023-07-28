@@ -1,0 +1,105 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+// #region IMPORTS
+import useThreeWebGL2, { THREE, useDarkScene, useVisualDebug } from '../_lib/useThreeWebGL2.js';
+
+import { Vec3, Quat }                 from '@oito/oop';
+import { Ray, intersectObb, RayObbResult }   from '@oito/ray';
+// #endregion
+
+// #region MAIN
+let App   = useDarkScene( useThreeWebGL2() );
+let Debug = {};
+let Ref   = {
+    x: new Vec3(),
+    y: new Vec3(),
+    z: new Vec3(),
+    c: [ 1, 1, -1 ],
+    h: [ 0.5, 0.5, 0.5 ],
+};
+
+window.addEventListener( 'load', async _=>{
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Setup
+    App.sphericalLook( 0, 20, 6 );
+    Debug = await useVisualDebug( App );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const q = new Quat().fromEuler( -45, 45, 0 );
+    Ref.x.fromQuat( q, [1,0,0] );
+    Ref.y.fromQuat( q, [0,1,0] );
+    Ref.z.fromQuat( q, [0,0,1] );
+
+    debugOBB( Ref.c, Ref.x, Ref.y, Ref.z, Ref.h, 0x00ff00, false );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    App.renderLoop();
+});
+// #endregion
+
+window.addEventListener( 'pointerdown', e=>{
+    if( e.button != 2 ) return;
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Compute the Ray and visually draw a line
+    const ray = from3JSScreenProjection( new Ray(), e.layerX, e.layerY );
+    Debug.ln.add( ray.posStart, ray.posEnd, 0x00ffff );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const results = new RayObbResult();
+    if( intersectObb( ray, Ref.c, Ref.x, Ref.y, Ref.z, Ref.h, results ) ){
+        const tmp = new Vec3();
+        Debug.pnt.add( results.posEntry, 0x00ff00, 3 );
+        Debug.pnt.add( results.posExit,  0xff0000, 3 );
+
+        Debug.ln.add( results.posEntry, tmp.fromNorm( results.normEntry ).scale( 0.3 ).add( results.posEntry ), 0x00ff00 );
+        Debug.ln.add( results.posExit,  tmp.fromNorm( results.normExit ).scale( 0.3 ).add( results.posExit ), 0xff0000 );
+    }
+} );
+
+function from3JSScreenProjection( ray, xMouse, yMouse ){
+    const size      = new THREE.Vector2();
+    const proj      = App.camera.projectionMatrix.toArray();    // Need Projection Matrix
+    const camWorld  = App.camera.matrixWorld.toArray();         // World Space Transform of Camera
+    App.renderer.getSize( size );                               // Need Size of Canvas
+
+    // Setup Ray
+    ray.fromScreenProjection( xMouse, yMouse, size.x, size.y, proj, camWorld );
+    return ray;
+}
+
+// #region LOREM
+
+function debugOBB( c, xx, yy, zz, h, col=0x00ff00, is_dash=false ){
+    const x  = [ xx[0] * h[0], xx[1] * h[0], xx[2] * h[0] ];
+    const y  = [ yy[0] * h[1], yy[1] * h[1], yy[2] * h[1] ];
+    const z  = [ zz[0] * h[2], zz[1] * h[2], zz[2] * h[2] ];
+
+    const ba = [ (c[0] - x[0] + y[0] - z[0]), (c[1] - x[1] + y[1] - z[1]), (c[2] - x[2] + y[2] - z[2]) ];
+    const bb = [ (c[0] - x[0] - y[0] - z[0]), (c[1] - x[1] - y[1] - z[1]), (c[2] - x[2] - y[2] - z[2]) ];
+    const bc = [ (c[0] + x[0] - y[0] - z[0]), (c[1] + x[1] - y[1] - z[1]), (c[2] + x[2] - y[2] - z[2]) ];
+    const bd = [ (c[0] + x[0] + y[0] - z[0]), (c[1] + x[1] + y[1] - z[1]), (c[2] + x[2] + y[2] - z[2]) ];
+    const fa = [ (c[0] - x[0] + y[0] + z[0]), (c[1] - x[1] + y[1] + z[1]), (c[2] - x[2] + y[2] + z[2]) ];
+    const fb = [ (c[0] - x[0] - y[0] + z[0]), (c[1] - x[1] - y[1] + z[1]), (c[2] - x[2] - y[2] + z[2]) ];
+    const fc = [ (c[0] + x[0] - y[0] + z[0]), (c[1] + x[1] - y[1] + z[1]), (c[2] + x[2] - y[2] + z[2]) ];
+    const fd = [ (c[0] + x[0] + y[0] + z[0]), (c[1] + x[1] + y[1] + z[1]), (c[2] + x[2] + y[2] + z[2]) ];
+
+    Debug.ln.add( ba, bb, col, null, is_dash ); // Back
+    Debug.ln.add( bb, bc, col, null, is_dash );
+    Debug.ln.add( bc, bd, col, null, is_dash );
+    Debug.ln.add( bd, ba, col, null, is_dash );
+    Debug.ln.add( fa, fb, col, null, is_dash ); // Front
+    Debug.ln.add( fb, fc, col, null, is_dash );
+    Debug.ln.add( fc, fd, col, null, is_dash );
+    Debug.ln.add( fd, fa, col, null, is_dash );
+    Debug.ln.add( fa, ba, col, null, is_dash ); // Connect
+    Debug.ln.add( fb, bb, col, null, is_dash );
+    Debug.ln.add( fc, bc, col, null, is_dash );
+    Debug.ln.add( fd, bd, col, null, is_dash );
+    return this
+}
+
+// #endregion
+
+</script></body></html>

@@ -615,6 +615,28 @@ export default class Quat extends Array< number >{
         return out;
     }
 
+    fromEulerYXZ(
+        out: Array<number>,
+        xDeg: number,
+        yDeg: number,
+        zDeg: number,
+    ): Array<number> {
+        const xx = xDeg * 0.01745329251 * 0.5;
+        const yy = yDeg * 0.01745329251 * 0.5;
+        const zz = zDeg * 0.01745329251 * 0.5;
+        const c1 = Math.cos(xx);
+        const c2 = Math.cos(yy);
+        const c3 = Math.cos(zz);
+        const s1 = Math.sin(xx);
+        const s2 = Math.sin(yy);
+        const s3 = Math.sin(zz);
+
+        out[0] = s1 * c2 * c3 + c1 * s2 * s3;
+        out[1] = c1 * s2 * c3 - s1 * c2 * s3;
+        out[2] = c1 * c2 * s3 - s1 * s2 * c3;
+        out[3] = c1 * c2 * c3 + s1 * s2 * s3;
+        return quat.normalize(out, out);
+    },
    
     toEulerYXZ(
         q: Array<number>,
@@ -1343,4 +1365,56 @@ public const float SQRT2 = 1.41421356237f;
 			};
 		}
 
+*/
+
+/*
+IMPORTANT: It has a way to handle when UP and Look are the same.
+
+https://github.com/mrdoob/three.js/blob/master/src/math/Matrix4.js#L297
+lookAt( eye, target, up ) {
+
+    const te = this.elements;
+
+    _z.subVectors( eye, target );
+
+    if ( _z.lengthSq() === 0 ) {
+
+        // eye and target are in the same position
+
+        _z.z = 1;
+
+    }
+
+    _z.normalize();
+    _x.crossVectors( up, _z );
+
+    if ( _x.lengthSq() === 0 ) {
+
+        // up and z are parallel
+
+        if ( Math.abs( up.z ) === 1 ) {
+
+            _z.x += 0.0001;
+
+        } else {
+
+            _z.z += 0.0001;
+
+        }
+
+        _z.normalize();
+        _x.crossVectors( up, _z );
+
+    }
+
+    _x.normalize();
+    _y.crossVectors( _z, _x );
+
+    te[ 0 ] = _x.x; te[ 4 ] = _y.x; te[ 8 ] = _z.x;
+    te[ 1 ] = _x.y; te[ 5 ] = _y.y; te[ 9 ] = _z.y;
+    te[ 2 ] = _x.z; te[ 6 ] = _y.z; te[ 10 ] = _z.z;
+
+    return this;
+
+}
 */

@@ -1,8 +1,4 @@
 export default class Mat4 extends Array< number >{
-    // #region STATIC VALUES
-    static BYTESIZE = 16 * 4;
-    // #endregion
-
     // #region CONSTRUCTOR
     constructor(){ 
         super(16);
@@ -29,7 +25,6 @@ export default class Mat4 extends Array< number >{
     // #endregion
 
     // #region GETTERS / SETTERS
-
     identity(): this {
         this[0]  = 1;
         this[1]  = 0;
@@ -120,7 +115,6 @@ export default class Mat4 extends Array< number >{
         );
     }
 
-    //----------------------------------------------------
     getTranslation( out: TVec3 = [0,0,0] ): TVec3{
         out[0] = this[12];
         out[1] = this[13];
@@ -178,7 +172,48 @@ export default class Mat4 extends Array< number >{
         return out;
     }
 
-    //----------------------------------------------------
+    // Calculates a 3x3 normal matrix ( transpose & inverse ) from this 4x4 matrix
+    toNormalMat3( out ?: TMat3 ): TMat3{
+        const a00 = this[0],  a01 = this[1],  a02 = this[2],  a03 = this[3],
+                a10 = this[4],  a11 = this[5],  a12 = this[6],  a13 = this[7],
+                a20 = this[8],  a21 = this[9],  a22 = this[10], a23 = this[11],
+                a30 = this[12], a31 = this[13], a32 = this[14], a33 = this[15],
+
+                b00 = a00 * a11 - a01 * a10,
+                b01 = a00 * a12 - a02 * a10,
+                b02 = a00 * a13 - a03 * a10,
+                b03 = a01 * a12 - a02 * a11,
+                b04 = a01 * a13 - a03 * a11,
+                b05 = a02 * a13 - a03 * a12,
+                b06 = a20 * a31 - a21 * a30,
+                b07 = a20 * a32 - a22 * a30,
+                b08 = a20 * a33 - a23 * a30,
+                b09 = a21 * a32 - a22 * a31,
+                b10 = a21 * a33 - a23 * a31,
+                b11 = a22 * a33 - a23 * a32;
+
+        
+        let det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06; // Calculate the determinant
+        out     = out || [ 0,0,0, 0,0,0, 0,0,0 ];
+        if( !det ) return out;
+
+        det    = 1.0 / det;
+        out[0] = (a11 * b11 - a12 * b10 + a13 * b09) * det;
+        out[1] = (a12 * b08 - a10 * b11 - a13 * b07) * det;
+        out[2] = (a10 * b10 - a11 * b08 + a13 * b06) * det;
+
+        out[3] = (a02 * b10 - a01 * b11 - a03 * b09) * det;
+        out[4] = (a00 * b11 - a02 * b08 + a03 * b07) * det;
+        out[5] = (a01 * b08 - a00 * b10 - a03 * b06) * det;
+
+        out[6] = (a31 * b05 - a32 * b04 + a33 * b03) * det;
+        out[7] = (a32 * b02 - a30 * b05 - a33 * b01) * det;
+        out[8] = (a30 * b04 - a31 * b02 + a33 * b00) * det;
+        return out;
+    }
+    // #endregion
+
+    // #region PROJECTIONS
     fromPerspective( fovy: number, aspect: number, near: number, far: number ): this{
         const f  = 1.0 / Math.tan( fovy * 0.5 ),
               nf = 1 / ( near - far );
@@ -410,7 +445,9 @@ export default class Mat4 extends Array< number >{
         App.orbit.object = Ref.perp;
     }
     */
+   // #endregion
 
+    // #region FROM OPS
     fromMul( a: ConstMat4, b: ConstMat4 ): this{ 
         const   a00 = a[0],  a01 = a[1],  a02 = a[2],  a03 = a[3],
                 a10 = a[4],  a11 = a[5],  a12 = a[6],  a13 = a[7],
@@ -560,8 +597,9 @@ export default class Mat4 extends Array< number >{
         this[15] = 0;
         return this;
     }
+    // #endregion
 
-    //----------------------------------------------------
+    // #region FROM TRANSFORMS
     fromQuatTranScale( q: ConstVec4, v: ConstVec3, s: ConstVec3 ): this{
         // Quaternion math
         const x  = q[0], y = q[1], z = q[2], w = q[3],
@@ -733,7 +771,7 @@ export default class Mat4 extends Array< number >{
         return this;
     }
 
-    fromDualQuat( a: TVec8 ): this {
+    fromDualQuat( a: TVec8 ): this{
         const   bx = -a[0],
                 by = -a[1],
                 bz = -a[2],
@@ -762,7 +800,111 @@ export default class Mat4 extends Array< number >{
         return this;
     }
 
-    //----------------------------------------------------
+    fromAxisAngle( axis: ConstVec3, rad: number ): this{
+        let x   = axis[0],
+            y   = axis[1],
+            z   = axis[2],
+            len = Math.hypot( x, y, z );
+      
+        if( len < 0.000001 ) return this;
+      
+        len = 1 / len;
+        x   *= len;
+        y   *= len;
+        z   *= len;
+        const s   = Math.sin(rad);
+        const c   = Math.cos(rad);
+        const t   = 1 - c;
+      
+        // Perform rotation-specific matrix multiplication
+        this[0] = x * x * t + c;
+        this[1]  = y * x * t + z * s;
+        this[2]  = z * x * t - y * s;
+        this[3]  = 0;
+        this[4]  = x * y * t - z * s;
+        this[5]  = y * y * t + c;
+        this[6]  = z * y * t + x * s;
+        this[7]  = 0;
+        this[8]  = x * z * t + y * s;
+        this[9]  = y * z * t - x * s;
+        this[10] = z * z * t + c;
+        this[11] = 0;
+        this[12] = 0;
+        this[13] = 0;
+        this[14] = 0;
+        this[15] = 1;
+
+        return this;
+    }
+      
+    fromRotX( rad: number ): this{
+        const   s = Math.sin( rad ),
+                c = Math.cos( rad );
+        this[0]  = 1;
+        this[1]  = 0;
+        this[2]  = 0;
+        this[3]  = 0;
+        this[4]  = 0;
+        this[5]  = c;
+        this[6]  = s;
+        this[7]  = 0;
+        this[8]  = 0;
+        this[9]  = -s;
+        this[10] = c;
+        this[11] = 0;
+        this[12] = 0;
+        this[13] = 0;
+        this[14] = 0;
+        this[15] = 1;
+        return this;
+    }
+    
+    fromRotY( rad: number ): this{
+        const   s = Math.sin( rad ),
+                c = Math.cos( rad );
+        this[0]  = c;
+        this[1]  = 0;
+        this[2]  = -s;
+        this[3]  = 0;
+        this[4]  = 0;
+        this[5]  = 1;
+        this[6]  = 0;
+        this[7]  = 0;
+        this[8]  = s;
+        this[9]  = 0;
+        this[10] = c;
+        this[11] = 0;
+        this[12] = 0;
+        this[13] = 0;
+        this[14] = 0;
+        this[15] = 1;
+        return this;
+    }
+
+    fromRotZ( rad: number ): this{
+        const   s = Math.sin( rad ),
+                c = Math.cos( rad );
+        this[0]  = c;
+        this[1]  = s;
+        this[2]  = 0;
+        this[3]  = 0;
+        this[4]  = -s;
+        this[5]  = c;
+        this[6]  = 0;
+        this[7]  = 0;
+        this[8]  = 0;
+        this[9]  = 0;
+        this[10] = 1;
+        this[11] = 0;
+        this[12] = 0;
+        this[13] = 0;
+        this[14] = 0;
+        this[15] = 1;
+        return this;
+    }
+    // #endregion
+
+    // #region LOOK
     /** This creates a View Matrix, not a World Matrix. Use fromTarget for a World Matrix */
     fromLook( eye: ConstVec3, center: ConstVec3, up: ConstVec3 ): this {
         let x0, x1, x2, y0, y1, y2, z0, z1, z2, len;
@@ -897,155 +1039,9 @@ export default class Mat4 extends Array< number >{
         return this;
     }
 
-    //----------------------------------------------------
+    // #endregion
 
-    fromAxisAngle( axis: ConstVec3, rad: number ): this {
-        let x   = axis[0],
-            y   = axis[1],
-            z   = axis[2],
-            len = Math.hypot( x, y, z );
-      
-        if( len < 0.000001 ) return this;
-      
-        len = 1 / len;
-        x   *= len;
-        y   *= len;
-        z   *= len;
-        const s   = Math.sin(rad);
-        const c   = Math.cos(rad);
-        const t   = 1 - c;
-      
-        // Perform rotation-specific matrix multiplication
-        this[0] = x * x * t + c;
-        this[1]  = y * x * t + z * s;
-        this[2]  = z * x * t - y * s;
-        this[3]  = 0;
-        this[4]  = x * y * t - z * s;
-        this[5]  = y * y * t + c;
-        this[6]  = z * y * t + x * s;
-        this[7]  = 0;
-        this[8]  = x * z * t + y * s;
-        this[9]  = y * z * t - x * s;
-        this[10] = z * z * t + c;
-        this[11] = 0;
-        this[12] = 0;
-        this[13] = 0;
-        this[14] = 0;
-        this[15] = 1;
-
-        return this;
-    }
-      
-    fromRotX( rad: number ): this {
-        const   s = Math.sin( rad ),
-                c = Math.cos( rad );
-        this[0]  = 1;
-        this[1]  = 0;
-        this[2]  = 0;
-        this[3]  = 0;
-        this[4]  = 0;
-        this[5]  = c;
-        this[6]  = s;
-        this[7]  = 0;
-        this[8]  = 0;
-        this[9]  = -s;
-        this[10] = c;
-        this[11] = 0;
-        this[12] = 0;
-        this[13] = 0;
-        this[14] = 0;
-        this[15] = 1;
-        return this;
-    }
-    
-    fromRotY( rad: number ): this {
-        const   s = Math.sin( rad ),
-                c = Math.cos( rad );
-        this[0]  = c;
-        this[1]  = 0;
-        this[2]  = -s;
-        this[3]  = 0;
-        this[4]  = 0;
-        this[5]  = 1;
-        this[6]  = 0;
-        this[7]  = 0;
-        this[8]  = s;
-        this[9]  = 0;
-        this[10] = c;
-        this[11] = 0;
-        this[12] = 0;
-        this[13] = 0;
-        this[14] = 0;
-        this[15] = 1;
-        return this;
-    }
-
-    fromRotZ( rad: number ): this {
-        const   s = Math.sin( rad ),
-                c = Math.cos( rad );
-        this[0]  = c;
-        this[1]  = s;
-        this[2]  = 0;
-        this[3]  = 0;
-        this[4]  = -s;
-        this[5]  = c;
-        this[6]  = 0;
-        this[7]  = 0;
-        this[8]  = 0;
-        this[9]  = 0;
-        this[10] = 1;
-        this[11] = 0;
-        this[12] = 0;
-        this[13] = 0;
-        this[14] = 0;
-        this[15] = 1;
-        return this;
-    }
-
-    //----------------------------------------------------
-    // Calculates a 3x3 normal matrix ( transpose & inverse ) from this 4x4 matrix
-    toNormalMat3( out ?: TMat3 ): TMat3{
-        const a00 = this[0],  a01 = this[1],  a02 = this[2],  a03 = this[3],
-                a10 = this[4],  a11 = this[5],  a12 = this[6],  a13 = this[7],
-                a20 = this[8],  a21 = this[9],  a22 = this[10], a23 = this[11],
-                a30 = this[12], a31 = this[13], a32 = this[14], a33 = this[15],
-
-                b00 = a00 * a11 - a01 * a10,
-                b01 = a00 * a12 - a02 * a10,
-                b02 = a00 * a13 - a03 * a10,
-                b03 = a01 * a12 - a02 * a11,
-                b04 = a01 * a13 - a03 * a11,
-                b05 = a02 * a13 - a03 * a12,
-                b06 = a20 * a31 - a21 * a30,
-                b07 = a20 * a32 - a22 * a30,
-                b08 = a20 * a33 - a23 * a30,
-                b09 = a21 * a32 - a22 * a31,
-                b10 = a21 * a33 - a23 * a31,
-                b11 = a22 * a33 - a23 * a32;
-
-        
-        let det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06; // Calculate the determinant
-        out     = out || [ 0,0,0, 0,0,0, 0,0,0 ];
-        if( !det ) return out;
-
-        det    = 1.0 / det;
-        out[0] = (a11 * b11 - a12 * b10 + a13 * b09) * det;
-        out[1] = (a12 * b08 - a10 * b11 - a13 * b07) * det;
-        out[2] = (a10 * b10 - a11 * b08 + a13 * b06) * det;
-
-        out[3] = (a02 * b10 - a01 * b11 - a03 * b09) * det;
-        out[4] = (a00 * b11 - a02 * b08 + a03 * b07) * det;
-        out[5] = (a01 * b08 - a00 * b10 - a03 * b06) * det;
-
-        out[6] = (a31 * b05 - a32 * b04 + a33 * b03) * det;
-        out[7] = (a32 * b02 - a30 * b05 - a33 * b01) * det;
-        out[8] = (a30 * b04 - a31 * b02 + a33 * b00) * det;
-        return out;
-    }
-
-    //----------------------------------------------------
-    // FLAT BUFFERS
-
+    // #region FLAT BUFFERS
     /** Used to get data from a flat buffer of matrices */
     fromBuf( ary : Array<number> | Float32Array, idx: number ): this {
         this[ 0 ]  = ary[ idx ];
@@ -1087,7 +1083,6 @@ export default class Mat4 extends Array< number >{
         ary[ idx + 15 ] = this[ 15 ];
         return this;
     }
-
     // #endregion
 
     // #region OPERATIONS
@@ -1282,7 +1277,6 @@ export default class Mat4 extends Array< number >{
         this[11] *= z;
         return this;
     }
-
 
     //----------------------------------------------------
     /** Make the rows into the columns */
@@ -1492,20 +1486,22 @@ export default class Mat4 extends Array< number >{
     // #endregion
 
     // #region TRANSFORMS
-    transformVec3( v: ConstVec3, out: TVec3 = [0,0,0] ) : TVec3{
+    transformVec3( v: TVec3, out ?: TVec3 ): TVec3{
         const x = v[0], y = v[1], z = v[2];
-        out[0] = this[0] * x + this[4] * y + this[8]	* z + this[12];
-        out[1] = this[1] * x + this[5] * y + this[9]	* z + this[13];
-        out[2] = this[2] * x + this[6] * y + this[10]	* z + this[14];
+        out    = out || v;
+        out[0] = this[0] * x + this[4] * y + this[8]  * z + this[12];
+        out[1] = this[1] * x + this[5] * y + this[9]  * z + this[13];
+        out[2] = this[2] * x + this[6] * y + this[10] * z + this[14];
         return out;
     }
         
-    transformVec4( v: TVec4, out: TVec4 = [0,0,0,0] ) : TVec4{
+    transformVec4( v: TVec4, out?: TVec4 ): TVec4{
         const x = v[0], y = v[1], z = v[2], w = v[3];
-        out[0] = this[0] * x + this[4] * y + this[8]	* z + this[12] * w;
-        out[1] = this[1] * x + this[5] * y + this[9]	* z + this[13] * w;
-        out[2] = this[2] * x + this[6] * y + this[10]	* z + this[14] * w;
-        out[3] = this[3] * x + this[7] * y + this[11]	* z + this[15] * w;
+        out    = out || v;
+        out[0] = this[0] * x + this[4] * y + this[8]  * z + this[12] * w;
+        out[1] = this[1] * x + this[5] * y + this[9]  * z + this[13] * w;
+        out[2] = this[2] * x + this[6] * y + this[10] * z + this[14] * w;
+        out[3] = this[3] * x + this[7] * y + this[11] * z + this[15] * w;
         return out;
     }
     // #endregion
@@ -1517,3 +1513,264 @@ export default class Mat4 extends Array< number >{
 
     // #endregion 
 }
+
+
+/*
+//https://github.com/mrdoob/three.js/blob/master/src/math/Matrix4.js#L162
+	makeRotationFromEuler( euler ) {
+
+		const te = this.elements;
+
+		const x = euler.x, y = euler.y, z = euler.z;
+		const a = Math.cos( x ), b = Math.sin( x );
+		const c = Math.cos( y ), d = Math.sin( y );
+		const e = Math.cos( z ), f = Math.sin( z );
+
+		if ( euler.order === 'XYZ' ) {
+
+			const ae = a * e, af = a * f, be = b * e, bf = b * f;
+
+			te[ 0 ] = c * e;
+			te[ 4 ] = - c * f;
+			te[ 8 ] = d;
+
+			te[ 1 ] = af + be * d;
+			te[ 5 ] = ae - bf * d;
+			te[ 9 ] = - b * c;
+
+			te[ 2 ] = bf - ae * d;
+			te[ 6 ] = be + af * d;
+			te[ 10 ] = a * c;
+
+		} else if ( euler.order === 'YXZ' ) {
+
+			const ce = c * e, cf = c * f, de = d * e, df = d * f;
+
+			te[ 0 ] = ce + df * b;
+			te[ 4 ] = de * b - cf;
+			te[ 8 ] = a * d;
+
+			te[ 1 ] = a * f;
+			te[ 5 ] = a * e;
+			te[ 9 ] = - b;
+
+			te[ 2 ] = cf * b - de;
+			te[ 6 ] = df + ce * b;
+			te[ 10 ] = a * c;
+
+		} else if ( euler.order === 'ZXY' ) {
+
+			const ce = c * e, cf = c * f, de = d * e, df = d * f;
+
+			te[ 0 ] = ce - df * b;
+			te[ 4 ] = - a * f;
+			te[ 8 ] = de + cf * b;
+
+			te[ 1 ] = cf + de * b;
+			te[ 5 ] = a * e;
+			te[ 9 ] = df - ce * b;
+
+			te[ 2 ] = - a * d;
+			te[ 6 ] = b;
+			te[ 10 ] = a * c;
+
+		} else if ( euler.order === 'ZYX' ) {
+
+			const ae = a * e, af = a * f, be = b * e, bf = b * f;
+
+			te[ 0 ] = c * e;
+			te[ 4 ] = be * d - af;
+			te[ 8 ] = ae * d + bf;
+
+			te[ 1 ] = c * f;
+			te[ 5 ] = bf * d + ae;
+			te[ 9 ] = af * d - be;
+
+			te[ 2 ] = - d;
+			te[ 6 ] = b * c;
+			te[ 10 ] = a * c;
+
+		} else if ( euler.order === 'YZX' ) {
+
+			const ac = a * c, ad = a * d, bc = b * c, bd = b * d;
+
+			te[ 0 ] = c * e;
+			te[ 4 ] = bd - ac * f;
+			te[ 8 ] = bc * f + ad;
+
+			te[ 1 ] = f;
+			te[ 5 ] = a * e;
+			te[ 9 ] = - b * e;
+
+			te[ 2 ] = - d * e;
+			te[ 6 ] = ad * f + bc;
+			te[ 10 ] = ac - bd * f;
+
+		} else if ( euler.order === 'XZY' ) {
+
+			const ac = a * c, ad = a * d, bc = b * c, bd = b * d;
+
+			te[ 0 ] = c * e;
+			te[ 4 ] = - f;
+			te[ 8 ] = d * e;
+
+			te[ 1 ] = ac * f + bd;
+			te[ 5 ] = a * e;
+			te[ 9 ] = ad * f - bc;
+
+			te[ 2 ] = bc * f - ad;
+			te[ 6 ] = b * e;
+			te[ 10 ] = bd * f + ac;
+
+		}
+
+		// bottom row
+		te[ 3 ] = 0;
+		te[ 7 ] = 0;
+		te[ 11 ] = 0;
+
+		// last column
+		te[ 12 ] = 0;
+		te[ 13 ] = 0;
+		te[ 14 ] = 0;
+		te[ 15 ] = 1;
+
+		return this;
+
+	}
+
+// https://github.com/mrdoob/three.js/blob/master/src/math/Euler.js#L105C2-L105C2
+setFromRotationMatrix( m, order = this._order, update = true ) {
+
+		// assumes the upper 3x3 of m is a pure rotation matrix (i.e, unscaled)
+
+		const te = m.elements;
+		const m11 = te[ 0 ], m12 = te[ 4 ], m13 = te[ 8 ];
+		const m21 = te[ 1 ], m22 = te[ 5 ], m23 = te[ 9 ];
+		const m31 = te[ 2 ], m32 = te[ 6 ], m33 = te[ 10 ];
+
+		switch ( order ) {
+
+			case 'XYZ':
+
+				this._y = Math.asin( clamp( m13, - 1, 1 ) );
+
+				if ( Math.abs( m13 ) < 0.9999999 ) {
+
+					this._x = Math.atan2( - m23, m33 );
+					this._z = Math.atan2( - m12, m11 );
+
+				} else {
+
+					this._x = Math.atan2( m32, m22 );
+					this._z = 0;
+
+				}
+
+				break;
+
+			case 'YXZ':
+
+				this._x = Math.asin( - clamp( m23, - 1, 1 ) );
+
+				if ( Math.abs( m23 ) < 0.9999999 ) {
+
+					this._y = Math.atan2( m13, m33 );
+					this._z = Math.atan2( m21, m22 );
+
+				} else {
+
+					this._y = Math.atan2( - m31, m11 );
+					this._z = 0;
+
+				}
+
+				break;
+
+			case 'ZXY':
+
+				this._x = Math.asin( clamp( m32, - 1, 1 ) );
+
+				if ( Math.abs( m32 ) < 0.9999999 ) {
+
+					this._y = Math.atan2( - m31, m33 );
+					this._z = Math.atan2( - m12, m22 );
+
+				} else {
+
+					this._y = 0;
+					this._z = Math.atan2( m21, m11 );
+
+				}
+
+				break;
+
+			case 'ZYX':
+
+				this._y = Math.asin( - clamp( m31, - 1, 1 ) );
+
+				if ( Math.abs( m31 ) < 0.9999999 ) {
+
+					this._x = Math.atan2( m32, m33 );
+					this._z = Math.atan2( m21, m11 );
+
+				} else {
+
+					this._x = 0;
+					this._z = Math.atan2( - m12, m22 );
+
+				}
+
+				break;
+
+			case 'YZX':
+
+				this._z = Math.asin( clamp( m21, - 1, 1 ) );
+
+				if ( Math.abs( m21 ) < 0.9999999 ) {
+
+					this._x = Math.atan2( - m23, m22 );
+					this._y = Math.atan2( - m31, m11 );
+
+				} else {
+
+					this._x = 0;
+					this._y = Math.atan2( m13, m33 );
+
+				}
+
+				break;
+
+			case 'XZY':
+
+				this._z = Math.asin( - clamp( m12, - 1, 1 ) );
+
+				if ( Math.abs( m12 ) < 0.9999999 ) {
+
+					this._x = Math.atan2( m32, m22 );
+					this._y = Math.atan2( m13, m11 );
+
+				} else {
+
+					this._x = Math.atan2( - m23, m33 );
+					this._y = 0;
+
+				}
+
+				break;
+
+			default:
+
+				console.warn( 'THREE.Euler: .setFromRotationMatrix() encountered an unknown order: ' + order );
+
+		}
+
+		this._order = order;
+
+		if ( update === true ) this._onChangeCallback();
+
+		return this;
+
+	}
+
+    */

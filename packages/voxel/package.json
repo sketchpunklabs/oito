@@ -1,0 +1,14 @@
+{
+  "name": "@oito/voxel",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.ts",
+  "scripts": {
+    "tscbuild" : "tsc --build",
+    "esbuild"  : "node ./es_build.mjs",
+    "build": "vite build --config vite.build.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT"
+}

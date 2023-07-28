@@ -421,6 +421,13 @@ export default class Vec3 extends Array< number >{
         return this;
     }
 
+    div( v: ConstVec3 ): this{
+        this[ 0 ] /= v[ 0 ];
+        this[ 1 ] /= v[ 1 ];
+        this[ 2 ] /= v[ 2 ];
+        return this;
+    }
+
     scale( v: number ): this{
         this[ 0 ] *= v;
         this[ 1 ] *= v;

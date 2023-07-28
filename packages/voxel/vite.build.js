@@ -14,8 +14,8 @@ export default ( { command, mode } ) => {
 
                 lib             : {
                     entry   : path.resolve( __dirname, 'src/index.ts' ),
-                    name    : 'ray',
-                    fileName: (format) => 'ray.js',
+                    name    : 'voxel',
+                    fileName: (format) => 'voxel.js',
                     formats : [ 'es' ],
                     
                 },
