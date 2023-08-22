@@ -1,0 +1,39 @@
+https://stackoverflow.com/questions/52130939/ray-vs-ellipsoid-intersection
+
+glm::vec3 S = start;
+    glm::vec3 Dir = dir;
+
+    auto sphereCenter = thisEntity()->transform()->getPosition();
+    auto scale = thisEntity()->transform()->getScale();
+
+    glm::mat3 q = glm::mat3(0);
+    float x = _radius.x * scale.x;
+    float y = _radius.y * scale.y;
+    float z = _radius.z * scale.z;
+    q[0][0] = x;
+    q[1][1] = y;
+    q[2][2] = z;
+    glm::mat3 qI = glm::inverse(q);
+
+// scale about the ellipsoid's position by subtracting before multiplying
+// more appropriate name would be "ellipseCenter" to avoid confusion
+S_ = qI * (S - sphereCenter);
+
+// this ::normalize should really be in the intersection function
+Dir_ = glm::normalize(qI * Dir); 
+
+// calculate hit point in world space squished
+// ... but around the origin in the squashed coordinate system
+glm::vec3 hitPoint, hitNormal;
+if (!IntersectionsMath::instance()->segmentVsSphere(
+          glm::vec3::ZERO, S_, Dir_,
+          dist, 1.f,
+          hitPoint, hitNormal)) return;
+
+// re-apply the offset
+hitPoint = q * hitPoint + sphereCenter
+
+// problem: hitNormal will not be correct for the ellipsoid when scaled
+// solution: divide through each component by square of respective semi-axis
+// (will provide proof upon request)
+hitNormal.x /= (x * x); hitNormal.y /= (y * y); hitNormal.z /= (z * z);

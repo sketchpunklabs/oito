@@ -1,4 +1,4 @@
-export default function pointInAABB( p, min, max ){
+export default function pointInAABB( p: ConstVec3, min: ConstVec3, max: ConstVec3 ): boolean{
     return ( 
         min[ 0 ] <= p[ 0 ] && p[ 0 ] <= max[ 0 ] &&
         min[ 1 ] <= p[ 1 ] && p[ 1 ] <= max[ 1 ] &&

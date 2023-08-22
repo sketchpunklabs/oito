@@ -55,3 +55,13 @@ export default class UtilVertices{
         return out;
     }
 }
+
+
+// function plane_ellipse( vecCenter, xAxis, yAxis, angle, xRadius, yRadius, out=[0,0,0] ){
+//     const sin = Math.sin( angle );
+//     const cos = Math.cos( angle );
+//     out[0] = vecCenter[0] + xRadius * cos * xAxis[0] + yRadius * sin * yAxis[0];
+//     out[1] = vecCenter[1] + xRadius * cos * xAxis[1] + yRadius * sin * yAxis[1];
+//     out[2] = vecCenter[2] + xRadius * cos * xAxis[2] + yRadius * sin * yAxis[2];
+//     return out;
+// }

@@ -17,7 +17,6 @@ export default ( { command, mode } ) => {
                     name    : 'ray',
                     fileName: (format) => 'ray.js',
                     formats : [ 'es' ],
-                    
                 },
 
                 rollupOptions   : {

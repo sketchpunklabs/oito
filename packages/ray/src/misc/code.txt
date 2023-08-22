@@ -1,0 +1,37 @@
+https://mugen87.github.io/yuka/docs/math_OBB.js.html
+131 : 	/**
+132 : 	* Ensures the given point is inside this OBB and stores
+133 : 	* the result in the given vector.
+134 : 	*
+135 : 	* Reference: Closest Point on OBB to Point in Real-Time Collision Detection
+136 : 	* by Christer Ericson (chapter 5.1.4)
+137 : 	*
+138 : 	* @param {Vector3} point - A point in 3D space.
+139 : 	* @param {Vector3} result - The result vector.
+140 : 	* @return {Vector3} The result vector.
+141 : 	*/
+142 : 	clampPoint( point, result ) {
+143 : 
+144 : 		const halfSizes = this.halfSizes;
+145 : 
+146 : 		v1.subVectors( point, this.center );
+147 : 		this.rotation.extractBasis( xAxis, yAxis, zAxis );
+148 : 
+149 : 		// start at the center position of the OBB
+150 : 
+151 : 		result.copy( this.center );
+152 : 
+153 : 		// project the target onto the OBB axes and walk towards that point
+154 : 
+155 : 		const x = MathUtils.clamp( v1.dot( xAxis ), - halfSizes.x, halfSizes.x );
+156 : 		result.add( xAxis.multiplyScalar( x ) );
+157 : 
+158 : 		const y = MathUtils.clamp( v1.dot( yAxis ), - halfSizes.y, halfSizes.y );
+159 : 		result.add( yAxis.multiplyScalar( y ) );
+160 : 
+161 : 		const z = MathUtils.clamp( v1.dot( zAxis ), - halfSizes.z, halfSizes.z );
+162 : 		result.add( zAxis.multiplyScalar( z ) );
+163 : 
+164 : 		return result;
+165 : 
+166 : 	}

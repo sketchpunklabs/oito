@@ -1,0 +1,13 @@
+https://github.com/juj/MathGeoLib/blob/master/src/Geometry/OBB.cpp#L2766C1-L2778C1
+/// The implementation of the OBB-Sphere intersection test follows Christer Ericson's Real-Time Collision Detection, p. 166. [groupSyntax]
+bool OBB::Intersects(const Sphere &sphere, vec *closestPointOnOBB) const
+{
+	// Find the point on this AABB closest to the sphere center.
+	vec pt = ClosestPoint(sphere.pos);
+
+	// If that point is inside sphere, the AABB and sphere intersect.
+	if (closestPointOnOBB)
+		*closestPointOnOBB = pt;
+
+	return pt.DistanceSq(sphere.pos) <= sphere.r * sphere.r;
+}

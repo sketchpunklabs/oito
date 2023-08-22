@@ -163,7 +163,7 @@ export default class Vec3 extends Array< number >{
         return this;
     }
 
-    fromQuat( q: ConstVec4, v: ConstVec3 ) : Vec3{
+    fromQuat( q: ConstVec4, v: ConstVec3 ): Vec3{
         const qx = q[0], qy = q[1], qz = q[2], qw = q[3],
               vx = v[0], vy = v[1], vz = v[2],
               x1 = qy * vz - qz * vy,

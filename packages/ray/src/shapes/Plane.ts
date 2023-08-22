@@ -1,9 +1,11 @@
-import Vec3 from '../Vec3.js';
+import { Vec3 } from '@oito/oop';
 
 export default class Plane{
+    // #region MAIN
     pos         = new Vec3();
     normal      = new Vec3();
     constant    = 0;
+    // #endregion
 
     // #region SETTERS / GETTERS
     fromNormAndPos( norm: TVec3, pos: TVec3 ) : Plane{
@@ -15,14 +17,14 @@ export default class Plane{
     // #endregion 
 
     // #region OPERATIONS
-	negate() : Plane{
+	negate(): this{
         this.constant *= - 1;
         this.normal.negate();
         return this;
 	}
 
-	norm() : Plane{
-        const len = this.normal.len();
+	norm(): this{
+        const len = this.normal.len;
         if( len != 0 ){
             const invLen = 1.0 / len;
             this.normal.scale( invLen );
@@ -31,18 +33,15 @@ export default class Plane{
 		return this;
 	}
 
-	translate( offset: TVec3 ) : Plane {
+	translate( offset: TVec3 ): Plane{
 		this.constant -= Vec3.dot( offset, this.normal );
 		return this;
 	}
-
     // #endregion
 
     // #region MATHs
-    distanceToPoint( pos: TVec3 ) : number{ return Vec3.dot( this.normal, pos ) + this.constant; }
+    distanceToPoint( pos: TVec3 ): number{ return Vec3.dot( this.normal, pos ) + this.constant; }
     distanceToSphere( spherePos: TVec3, radius: number ) : number{ return this.distanceToPoint( spherePos ) - radius; }
-
     projectPoint( pos: TVec3, out: Vec3 ) : Vec3{ return out.fromScale( this.normal, -this.distanceToPoint( pos ) ).add( pos ); }
-
     // #endregion
 }

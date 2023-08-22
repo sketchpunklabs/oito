@@ -2,10 +2,10 @@ import { Vec3 } from '@oito/oop';
 import Ray      from '../Ray';
 
 export class NearSegmentResult{
-    segPosition = [0,0,0];
-    rayPosition = [0,0,0];
-    distanceSq  = 0;
-    distance    = 0;
+    segPosition : TVec3  = [0,0,0];
+    rayPosition : TVec3  = [0,0,0];
+    distanceSq  : number = 0;
+    distance    : number = 0;
 }
 
 /** Returns [ T of Segment, T of RayLen ] */

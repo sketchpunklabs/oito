@@ -1,7 +1,6 @@
 // #region OBJECTS
-import Frustum  from './Frustum';
-import Ray      from './Ray';
-export { Ray, Frustum };
+import Ray from './Ray';
+export { Ray };
 // #endregion
 
 // #region RAY INTERSECTS
@@ -27,6 +26,31 @@ export {
     intersectObb,     RayObbResult,
 };
 // #endregion
+
+
+// #region SHAPES
+import Frustum  from './shapes/Frustum';
+import Obb      from './shapes/Obb';
+import Aabb     from './shapes/Aabb';
+import Sphere   from './shapes/Sphere';
+import Plane   from './shapes/Plane';
+export { Frustum, Obb, Aabb, Sphere, Plane };
+// #endregion
+
+
+// #region OVERLAP / COLLISIONS
+import overlap2OBB          from './overlap/overlap2OBB';
+import overlap2Spheres      from './overlap/overlap2Spheres';
+import overlapSphereAABB    from './overlap/overlapSphereAABB';
+import overlapTriAABB       from './overlap/overlapTriAABB';
+import pointInAABB          from './overlap/pointInAABB';
+import pointInOBB           from './overlap/pointInOBB';
+export { 
+    overlap2OBB, overlap2Spheres, overlapSphereAABB, overlapTriAABB,
+    pointInAABB, pointInOBB
+};
+// #endregion
+
 
 // #region MISC
 import nearPoint                            from './misc/nearPoint';

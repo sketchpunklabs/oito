@@ -350,7 +350,7 @@ export default class Quat extends Array< number >{
         return this.norm();
     }
 
-    fromLerp( a: TVec4, b: TVec4, t: number ) : this{
+    fromLerp( a: TVec4, b: TVec4, t: number ): this{
         const ti = 1 - t;
         this[0]	 = a[0] * ti + b[0] * t;
         this[1]	 = a[1] * ti + b[1] * t;
@@ -359,7 +359,7 @@ export default class Quat extends Array< number >{
         return this;
     }
 
-    fromNLerp( a: TVec4, b: TVec4, t: number ) : this{
+    fromNLerp( a: TVec4, b: TVec4, t: number ): this{
         const ti = 1 - t;
         this[0]	 = a[0] * ti + b[0] * t;
         this[1]	 = a[1] * ti + b[1] * t;
@@ -368,7 +368,7 @@ export default class Quat extends Array< number >{
         return this.norm();
     }
 
-    fromSlerp( a: TVec4, b: TVec4, t: number ) : this{
+    fromSlerp( a: TVec4, b: TVec4, t: number ): this{
         // benchmarks: http://jsperf.com/Quat-slerp-implementations
         const ax = a[0], ay = a[1], az = a[2], aw = a[3];
         let   bx = b[0], by = b[1], bz = b[2], bw = b[3];
@@ -408,7 +408,7 @@ export default class Quat extends Array< number >{
         return this;
     }
 
-    fromAxes( xAxis: TVec3, yAxis: TVec3, zAxis: TVec3 ) : this{
+    fromAxes( xAxis: ConstVec3, yAxis: ConstVec3, zAxis: ConstVec3 ): this{
         const m00 = xAxis[0], m01 = xAxis[1], m02 = xAxis[2],
               m10 = yAxis[0], m11 = yAxis[1], m12 = yAxis[2],
               m20 = zAxis[0], m21 = zAxis[1], m22 = zAxis[2],

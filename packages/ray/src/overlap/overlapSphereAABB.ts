@@ -1,4 +1,4 @@
-export default function collisionSphereAABB( pos, radius, bMin, bMax ){
+export default function overlapSphereAABB( pos:ConstVec3, radius: number, bMin: ConstVec3, bMax: ConstVec3 ): boolean{
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Closest Point to AABB
     const x = ( pos[0] > bMax[0] )? bMax[0] :
