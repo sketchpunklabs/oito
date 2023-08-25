@@ -1,0 +1,83 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+//#region IMPORTS
+import useThreeWebGL2, { useDarkScene, useVisualDebug } from '../_lib/useThreeWebGL2.js';
+import facedCube    from '../_lib/meshes/facedCube.js';
+
+import { Vec3, Quat, Transform } from '../../packages/oop/src/index.ts';
+// import { Colour } from '../../packages/core/src/index.ts';
+//#endregion
+
+//#region MAIN
+let App   = useDarkScene( useThreeWebGL2() );
+let Debug = {};
+let Ref   = {};
+
+window.addEventListener( 'load', async _=>{
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Setup
+    App.sphericalLook( 45, 20, 6 );
+    Debug = await useVisualDebug( App );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // App.scene.add( (Ref.cube2 = facedCube()) );
+    // Ref.cube2.rotation.x = Math.PI;
+    // Ref.cube2.position.y = 0.5;
+
+    App.scene.add( (Ref.cube = facedCube()) );
+    Ref.cube.rotation.x = Math.PI;
+    Ref.cube.position.y = 0.5;
+    // Ref.cube.scale.setScalar( 0.5 );
+
+    Ref.pivot = [0.5,1.0,0.5];
+
+    Ref.t0  = new Transform(
+        Ref.cube.quaternion.toArray(),  
+        Ref.cube.position.toArray(), 
+        Ref.cube.scale.toArray(),
+    );
+
+    Debug.pnt.add( Ref.pivot, 0x00ffff, 5 );
+    
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // App.renderLoop();
+    App.createRenderLoop( onPreRender ).start();
+});
+
+function onPreRender( dt, et ){
+    const q = new Quat().fromAxisAngle( [1,0,0], -90 * Math.PI / 180 * dt );
+
+    Ref.t0.pivotRot( Ref.pivot, q );
+    Ref.cube.position.fromArray( Ref.t0.pos );
+    Ref.cube.quaternion.fromArray( Ref.t0.rot );
+
+    // const t = pivotRot(
+    //     Ref.cube.position.toArray(),
+    //     Ref.cube.quaternion.toArray(),
+    //     Ref.pivot,
+    //     q, 
+    // );
+
+    // Ref.cube.position.fromArray( t[1] );
+    // Ref.cube.quaternion.fromArray( t[0] );
+}
+
+function pivotRot( pos, rot, pivot, apply ){
+
+    const q      = new Quat( apply ).mul( rot );    // Apply rotation           
+    const offset = new Vec3()
+        .fromSub( pos, pivot )                      // Get Pivot Offset
+        .transformQuat( apply );                    // Rotate the Pivot Offset
+
+    // Pre-Add Pivot back
+    offset[0] = pivot[0] + offset[0];
+    offset[1] = pivot[1] + offset[1];
+    offset[2] = pivot[2] + offset[2];
+
+    return [ q, offset ];
+}
+
+//#endregion
+
+</script></body></html>

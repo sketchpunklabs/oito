@@ -78,7 +78,7 @@ export default class Transform{
     // Computing Transforms in reverse, Child - > Parent
     pmul( tran: Transform ) : this
     pmul( pr: ConstVec4, pp: TVec3, ps: TVec3 ) : this
-    pmul( pr: ConstVec4 | Transform, pp ?: TVec3, ps ?: TVec3 ) : this{
+    pmul( pr: ConstVec4 | Transform, pp ?: TVec3, ps ?: TVec3 ): this{
         //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         // If just passing in Tranform Object
         if( pr instanceof Transform ){
@@ -105,13 +105,27 @@ export default class Transform{
         return this
     }
 
-    addPos( cp: TVec3, ignoreScl=false ) : this{
+    addPos( cp: TVec3, ignoreScl=false ): this{
         //POSITION - parent.position + ( parent.rotation * ( parent.scale * child.position ) )
         if( ignoreScl )	this.pos.add( new Vec3().fromQuat( this.rot, cp ) );
         else 			this.pos.add( new Vec3().fromMul( cp, this.scl ).transformQuat( this.rot ) );
         return this;
     }
 
+    pivotRot( pivot: ConstVec3, q: ConstVec4 ): this{
+        this.rot.pmul( q );             // Apply rotation 
+                      
+        const offset = new Vec3()
+            .fromSub( this.pos, pivot ) // Get Pivot Offset
+            .transformQuat( q );        // Rotate the Pivot Offset
+        
+        // Pre-Add Pivot back to offset
+        this.pos[0] = pivot[0] + offset[0];
+        this.pos[1] = pivot[1] + offset[1];
+        this.pos[2] = pivot[2] + offset[2];
+        
+        return this
+    }
     // #endregion
 
     // #region FROM OPERATORS
