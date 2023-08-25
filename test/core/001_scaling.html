@@ -19,12 +19,19 @@ window.addEventListener( 'load', async _=>{
     App.sphericalLook( 45, 20, 6 );
     Debug = await useVisualDebug( App );
 
+    Debug.pnt.add( [0,0.5,0], 0xffffff, 3 );
+    Debug.pnt.add( [0,-0.5,0], 0xffffff, 3 );
+    Debug.pnt.add( [0.5,0,0], 0xffffff, 3 );
+    Debug.pnt.add( [-0.5,0,0], 0xffffff, 3 );
+    Debug.pnt.add( [0,0,0.5], 0xffffff, 3 );
+    Debug.pnt.add( [0,0,-0.5], 0xffffff, 3 );
+
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     const cube = facedCube();
 
     // If Scaling from the negative direction, subtract position
     // else the positive direction you add
-    const w = 1.0;
+    const w  = 1.0;
     const sx = 0.5;
     const sy = 1.5;
     const sz = 0.5;
