@@ -1,0 +1,15 @@
+Not sure what this creates but looks interesting
+https://junkiyoshi.com/openframeworks20230911/
+glm::vec3 ofApp::make_point(float R, float r, float u, float v) {
+ 
+	// 数学デッサン教室 描いて楽しむ数学たち　P.31
+ 
+	u *= DEG_TO_RAD;
+	v *= DEG_TO_RAD;
+ 
+	auto x = (R + r * cos(u)) * cos(v);
+	auto y = (R + r * cos(u)) * sin(v);
+	auto z = r * sin(u);
+ 
+	return glm::vec3(x, y, z);
+}

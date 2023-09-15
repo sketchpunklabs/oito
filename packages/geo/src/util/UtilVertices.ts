@@ -54,6 +54,48 @@ export default class UtilVertices{
 
         return out;
     }
+
+    // Counterclock wise indice starting at TOP-LEFT corner
+    static gridEdgeLoopIndices( xCells: number, yCells: number ): Array<number>{
+        const xLen = xCells + 1;
+        const out  = [];
+        const t    = xLen * yCells;
+        let i;
+        
+        for( i=0; i <= yCells; i++ )    out.push( xLen * i );           // LEFT SIDE
+        for( i=1; i <= xCells; i++ )    out.push( i + t );              // BOTTOM SIDE
+        for( i=xCells-1; i >= 0; i-- )  out.push( xLen * i + xCells );  // RIGHT SIDE
+        for( i=xCells-1; i >= 1; i-- )  out.push( i );                  // TOP SIDE
+    
+        return out;
+    }
+
+    // Get the indices of each side edge of a grid
+    // Counterclock wise indice starting at TOP-LEFT corner
+    static gridEdgeIndices( xCells: number, yCells: number ): Array< Array<number> >{
+        const a    = [];
+        const b    = [];
+        const c    = [];
+        const d    = [];
+        const xLen = xCells + 1;
+        const t    = xLen * yCells;
+        let i;
+        
+        for( i=0; i <= yCells; i++ )  a.push( xLen * i );           // LEFT SIDE
+        for( i=0; i <= xCells; i++ )  b.push( i + t );              // BOTTOM SIDE
+        for( i=xCells; i >= 0; i-- )  c.push( xLen * i + xCells );  // RIGHT SIDE
+        for( i=xCells; i >= 0; i-- )  d.push( i );                  // TOP SIDE
+    
+        return [ a, b, c, d ];
+    }
+
+    static gridTexcoord( out: Array<number>, xLen: number , yLen: number ): void{
+        let x, y, yt;
+        for( y=0; y <= yLen; y++ ){
+            yt = 1 - ( y / yLen );
+            for( x=0; x <= xLen; x++ ) out.push( x / xLen, yt );
+        }
+    }
 }
 
 

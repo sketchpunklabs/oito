@@ -1,3 +1,34 @@
+https://github.com/mattdesl/canvas-sketch-util/blob/master/random.js#L279
+https://github.com/mattdesl/canvas-sketch-util/blob/master/docs/random.md#weighted
+Weighted Probability
+function weighted (weights) {
+    weights = weights || [];
+    if (weights.length === 0) return -1;
+    var totalWeight = 0;
+    var i;
+
+    for (i = 0; i < weights.length; i++) {
+      totalWeight += weights[i];
+    }
+
+    if (totalWeight <= 0) throw new Error('Weights must sum to > 0');
+
+    var random = value() * totalWeight;
+    for (i = 0; i < weights.length; i++) {
+      if (random < weights[i]) {
+        return i;
+      }
+      random -= weights[i];
+    }
+    return 0;
+  }
+
+const weights = [ 0, 2500, 10 ];
+const index = random.weighted(weights);
+// likely to produce index=1
+
+
+
 https://github.com/StrandedKitty/streets-gl/blob/dev/src/lib/math/MathUtils.ts
 
 public static shortestAngleDistance(a0: number, a1: number): number {

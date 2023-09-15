@@ -26,12 +26,20 @@ export default class Maths{
     static map( x: number, xMin: number, xMax: number, zMin: number, zMax: number) : number{ 
         return (x - xMin) / (xMax - xMin) * (zMax-zMin) + zMin;
     }
+
+    static remapAngle180(deg: number): number{
+        const ang = deg % 360;
+        return ang > 180 ? ang - 360 : ang < -180 ? ang + 360 : ang;
+    }
     
     static snap( x: number, step: number ): number { return Math.floor( x / step ) * step; }
 
     static norm( min: number, max: number, v: number ): number { return (v-min) / (max-min); }
 
     static baseLog( base:number, val:number ): number{ return Math.log( val ) / Math.log( base ); }
+
+    /** At zero gives 1, as number gets bigger the closer you get to zero */
+    static expDecay( x:number, rate:number=0.5 ): number{ return Math.exp( -rate * x ); }
 
     /** Modulas that handles Negatives
      * @example
@@ -83,7 +91,6 @@ export default class Maths{
 
     //static select( t:number, f:number, b:boolean ): number{ return b ? t : f; }
     static negateIf( val: number, b: boolean ): number { return b ? -val : val; }
-
     //#endregion
 
     // #region INTERPOLATION

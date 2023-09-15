@@ -606,7 +606,7 @@ class vec3{
 
 
     // #region MISC
-    /** Normal Direction of a Triangle */
+    
     static project( from: TVec3, to: TVec3, out: TVec3 ) : TVec3{
         // Modified from https://github.com/Unity-Technologies/UnityCsReference/blob/master/Runtime/Export/Math/Vector3.cs#L265
         // dot( a, b ) / dot( b, b ) * b

@@ -1,0 +1,530 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+//#region IMPORTS
+import useThreeWebGL2, { useDarkScene, useVisualDebug } from '../../_lib/useThreeWebGL2.js';
+
+import { Vec3 } from '@oito/oop';
+
+//#endregion
+
+//#region MAIN
+let App   = useDarkScene( useThreeWebGL2() );
+let Debug = {};
+let Ref   = {};
+
+// https://gamedev.stackexchange.com/questions/71397/how-can-i-generate-a-lightning-bolt-effect
+// https://web.archive.org/web/20190816102613/http://drilian.com/2009/02/25/lightning-bolts/
+// https://twitter.com/TheMirzaBeig/status/1700308194868814114?s=20
+// https://twitter.com/TheMirzaBeig/status/1701533086054256936?s=20
+// https://developer.download.nvidia.com/SDK/10/direct3d/Source/Lightning/doc/lightning_doc.pdf
+// https://x.com/TheMirzaBeig/status/1513217397171363846?s=20
+
+/*
+Iterations
+Branch Probability
+
+
+Max Offset: 
+> How far the arc will deviate between start and end, where 0.0 is a straight line.
+
+Lengh Scale:
+> Scale of the branches.
+// Branch Length Scale
+
+Random Small angle Max
+// Branch Max Angle Offset
+
+var probabilityBool = function(n) {
+     return !!n && Math.random() <= n;
+};
+
+*/
+
+/*
+the rapidly exploring random tree (RRT). 
+Tree RRT(Node start, Node goal, int maxIters)
+{
+    // Initialize a tree with a root as the start node.
+    Tree t = new Tree();
+    t.Root = start;
+    
+    
+    bool reachedGoal = false;
+    int iter = 0;
+    
+    // Keep growing the tree until it contains the goal and we've
+    // grown for the required number of iterations.
+    while (!reachedGoal || iter < maxIters)
+    {
+         // Get a random node somewhere near the goal
+         Node random = RandomSample(goal);
+         // Get the closest node in the tree to the sample.
+         Node closest = t.GetClosestNode(random);
+         // Create a new node between the closest node and the sample.
+         Node extension = ExtendToward(closest, random);
+         // If we managed to create a new node, add it to the tree.
+         if (extension)
+         {
+             closest.AddChild(extension);
+             
+             // If we haven't yet reached the goal, and the new node
+             // is very near the goal, add the goal to the tree.
+             if(!reachedGoal && extension.IsNear(goal))
+             {
+                extension.AddChild(goal);
+                reachedGoal = true;
+             }
+         }
+         iter++;
+    }
+    return t;
+}
+*/
+
+window.addEventListener( 'load', async _=>{
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Setup
+    App.sphericalLook( 0, 20, 3, [0,0.5,0] );
+    Debug = await useVisualDebug( App );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    Ref.lit = new Lightning();
+
+    Debug.pnt.add( Ref.lit.startPos, 0xffffff, 4, 2 );
+    Debug.pnt.add( Ref.lit.endPos, 0xffff00, 4, 11 );
+
+    generate();
+    
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    initUI();
+    App.renderLoop();
+    // App.createRenderLoop( onPreRender ).start();
+});
+
+function generate(){
+    Debug.ln.reset();
+    const { points, edges } = Ref.lit.generate();
+
+    let ca;
+    for( let e of edges ){
+        ca = fromHSL( 1.5, 1.0, 0.8 * expDecay( e.lvl, 0.5 ) ); 
+        Debug.ln.add( points[e.a], points[e.b], ca, null, false );
+    }
+}
+
+// #endregion
+
+
+// #region UI
+function initUI(){
+    const fAry = [ 'in_seed', 'in_branchScale', 'in_branchProbability', 'in_minArc', 'in_maxArc', 'in_iter', 'in_minTwist', 'in_maxTwist', 'arcNegAngle', 'twistNegAngle' ];
+
+    for( let id of fAry ) onChange( id, onAction );
+}
+
+function onChange( id, fn ){ document.getElementById( id ).addEventListener( 'change', fn ); }
+function onAction( e ){
+    let elm = e.srcElement;
+    let id  = elm.id.substring( elm.id.indexOf( '_' ) + 1 );
+
+    switch( elm.type ){
+        case 'checkbox': Ref.lit[ id ] = elm.checked; break;
+        default:
+            switch( elm.dataset.type  ){
+                case 'int' :  Ref.lit[ id ] = parseInt( elm.value );   break;
+                default :     Ref.lit[ id ] = parseFloat( elm.value ); break;
+            }
+    }
+    
+    generate();
+}
+// #endregion
+
+var probabilityBool = function(n){ return !!n && Math.random() <= n; };
+
+function expDecay( x, rate=0.5 ){ return Math.exp( -rate * x ); }
+
+function fromHSL( h, s = 1.0, l = 0.5 ){
+        const ang = h * 360;
+        const a   = s * Math.min( l, 1 - l );
+        const k   = (n)=>( n + ang / 30 ) % 12;
+
+        const r   = l - a * Math.max( -1, Math.min( k( 0 ) - 3 , Math.min( 9 - k( 0 ), 1 ) ) );
+        const g   = l - a * Math.max( -1, Math.min( k( 8 ) - 3 , Math.min( 9 - k( 8 ), 1 ) ) );
+        const b   = l - a * Math.max( -1, Math.min( k( 4 ) - 3 , Math.min( 9 - k( 4 ), 1 ) ) );
+
+        return  (~ ~( r * 255 )) << 16 |
+                (~ ~( g * 255 )) << 8  |
+                (~ ~( b * 255 ));
+    }
+
+
+// https://stackoverflow.com/questions/521295/seeding-the-random-number-generator-in-javascript
+// https://en.wikipedia.org/wiki/Lehmer_random_number_generator
+class RandomLCG{
+    // #region MAIN
+    _seed = 0;
+    _num  = 0;
+    constructor( s = 1 ){ this.seed = s; }
+    
+    _lcg( n ){ return n * 48271 % 2147483647; }
+
+    set seed( s ){
+        this._seed = Math.max( s, 1 );
+        this._num  = this._lcg( this._seed );
+    }
+    // #endregion
+    
+    // #region METHODS
+    reset(){ this._num = this._lcg( this._seed ); return this; }
+
+    next(){ return ( this._num = this._lcg( this._num ) ) / 2147483648; }
+
+    probability( n ){ return !!n && this.next() <= n; };
+    // #endregion
+}
+
+
+class LighteningV1{
+    startPos = [ -2, 0.5, 0 ];
+    endPos   = [  2, 0.5, 0 ];
+
+    branchScale    = 0.9;
+    branchMinAngle = 10 * Math.PI / 180;
+    branchMaxAngle = 50 * Math.PI / 180;
+
+    constructor(){
+    }
+
+    generate( iter=4 ){
+        const pnts      = [ this.startPos, this.endPos ];
+        let prevEdges   = [ { a:0, b:1 } ];
+        let offset      = 0.9;
+        let offsetRad   = 40 * Math.PI / 180;
+
+        let edges;
+        let e;
+        let mid;
+        let ext;
+        let t;
+        let mi;
+        let ei;
+        let rad;
+
+        for( let i=0; i < iter; i++ ){
+            edges = [];
+
+            for( e of prevEdges ){
+                t   = Math.random();
+                mid = new Vec3().fromLerp( pnts[e.a], pnts[e.b], 0.5 );
+                
+                mid[1] += -offset * (1-t) + offset * t;
+                mi     = pnts.length;
+                pnts.push( mid );
+
+                edges.push(
+                    { a:e.a, b:mi }, 
+                    { a:mi, b:e.b },
+                );
+
+                // Debug.pnt.add( mid, 0x00ffff, 3 );
+                offset *= 0.6;
+
+                if( probabilityBool(1.0) ){
+                    
+                    t   = Math.random();
+                    rad = this.branchMinAngle * (1-t) + this.branchMaxAngle * t;
+                    if( probabilityBool(0.5) ) rad = -rad;
+
+                    ext = new Vec3()
+                        .fromSub( mid, pnts[e.a] )
+                        .scale( this.branchScale )
+                        .axisAngle( [0,0,1], rad )
+                        .add( mid );
+
+                    ei = pnts.length;
+                    pnts.push( ext );
+                    edges.push( { a:mi, b:ei } );
+                }
+            }
+
+            prevEdges = edges;
+        }
+
+
+        for( e of prevEdges ){
+            Debug.ln.add( pnts[e.a], pnts[e.b], 0x00ffff );
+        }
+
+    }
+}
+
+
+class LighteningV2{
+    // #region MAIN
+    startPos            = [ -2, 0.5, 0 ];
+    endPos              = [  2, 0.5, 0 ];
+    rnd                 = new RandomLCG( 1 );
+
+    negChance           = 0.7;
+
+    branchScale         = 0.8;
+    branchProbability   = 0.7;
+    branchMinAngle      = 10 * Math.PI / 180;
+    branchMaxAngle      = 30 * Math.PI / 180;
+    branchNegAngle      = true;
+
+    constructor(){}
+    // #endregion
+
+    generate( iter=4 ){
+        const pnts      = [ this.startPos, this.endPos ];
+        let prevEdges   = [ { a:0, b:1 } ];
+        let edges;
+        let e;
+        let t;
+        let mi;
+        let ei;
+
+        this.rnd.reset();
+        for( let i=0; i < iter; i++ ){
+            edges = [];
+
+            for( e of prevEdges ){
+                mi  = this.genPoint( pnts[e.a], pnts[e.b], pnts, true );
+                edges.push(
+                    { a:e.a, b:mi }, 
+                    { a:mi, b:e.b },
+                );
+
+                if( this.rnd.probability( this.branchProbability ) ){
+                    ei  = this.genPoint( pnts[mi], pnts[e.a], pnts, false );
+                    edges.push( { a:mi, b:ei } );
+                }
+            }
+
+            prevEdges = edges;
+        }
+
+
+        for( e of prevEdges ){
+            Debug.ln.add( pnts[e.a], pnts[e.b], 0x00ffff );
+        }
+
+    }
+
+
+    genPoint( a, b, pnts, isMid=true ){
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        const t   = this.rnd.next();
+        let   rad = this.branchMinAngle * (1-t) + this.branchMaxAngle * t;
+        if( this.branchNegAngle && this.rnd.probability( this.negChance ) ) rad = -rad;
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        let v;
+        if( isMid ){
+            // Create mid point Edge
+            v = new Vec3()
+            .fromLerp( a, b, 0.5 )
+            .sub( a )
+            .axisAngle( [0,0,1], rad )
+            .add( a );
+        }else{
+            // Branch out from edge
+            v = new Vec3()
+            .fromSub( a, b )
+            .scale( this.branchScale )
+            .axisAngle( [0,0,1], rad )
+            .add( a );
+        }
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        const i = pnts.length;
+        pnts.push( v );
+        return i;
+    }
+}
+
+
+class Lightning{
+    // #region MAIN
+    startPos           = [ -2, 0.5, 0 ];
+    endPos             = [  2, 0.5, 0 ];
+    rnd                = new RandomLCG( 1 );
+
+    iter               = 6;
+    negChance          = 0.7;   // Chance of filling Rotation Angle to Negative
+
+    branchScale        = 0.8;
+    branchProbability  = 0.7;
+
+    arcMinAngle        = 10 * Math.PI / 180;
+    arcMaxAngle        = 30 * Math.PI / 180;
+    arcNegAngle        = true;
+
+    twistMinAngle      = 10 * Math.PI / 180;
+    twistMaxAngle      = 180 * Math.PI / 180;
+    twistNegAngle      = true;
+
+    constructor(){}
+
+    set seed( n ){ this.rnd.seed = n; }
+
+    set minArc( deg ){ this.arcMinAngle = deg * Math.PI / 180; }
+    set maxArc( deg ){ this.arcMaxAngle = deg * Math.PI / 180; }
+
+    set minTwist( deg ){ this.twistMinAngle = deg * Math.PI / 180; }
+    set maxTwist( deg ){ this.twistMaxAngle = deg * Math.PI / 180; }
+    // #endregion
+
+    generate( iter=this.iter ){
+        const pnts      = [ this.startPos, this.endPos ];
+        let prevEdges   = [ { a:0, b:1, lvl:0 } ]; // prev iter of edges
+        let edges;      // Current iter of edges
+        let e;          // edge
+        let mi;         // Mid point Index  
+        let ei;         // Ext branch point index
+
+        this.rnd.reset();
+        for( let i=0; i < iter; i++ ){
+            edges = [];
+
+            for( e of prevEdges ){
+                mi  = this.genPoint( pnts[e.a], pnts[e.b], pnts, true );
+                edges.push(
+                    { a:e.a, b:mi,  lvl:e.lvl }, 
+                    { a:mi,  b:e.b, lvl:e.lvl },
+                );
+
+                if( this.rnd.probability( this.branchProbability ) ){
+                    ei  = this.genPoint( pnts[e.a], pnts[mi], pnts, false );
+                    edges.push( { a:mi, b:ei, lvl:e.lvl+1 } );
+                }
+            }
+
+            prevEdges = edges;
+        }
+
+        return { points: pnts, edges: prevEdges };
+    }
+
+
+    computeAxes( a, b ){
+        const x = new Vec3();
+        const y = new Vec3();
+        const z = new Vec3().fromSub( b, a ).norm();
+        const d = Vec3.dot( z, [0,1,0] );
+
+        if( d >= 0.9999 )       y.copy( [0, 0,-1] ); // Point BACK
+        else if( d <= -0.9999 ) y.copy( [0, 0, 1] ); // Point FORWARD
+        else                    y.copy( [0, 1, 0] ); // Point UP
+
+        x.fromCross( y, z ).norm();
+        y.fromCross( z, x ).norm();
+
+        return [ x, y, z ];
+    }
+
+    genPoint( a, b, pnts, isSub=true ){
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        const t    = this.rnd.next();
+        let arcRad = this.arcMinAngle * (1-t) + this.arcMaxAngle * t;
+        if( this.arcNegAngle && this.rnd.probability( this.negChance ) ) arcRad = -arcRad;
+
+        let twistRad = this.twistMinAngle * (1-t) + this.twistMaxAngle * t;
+        if( this.twistNegAngle && this.rnd.probability( this.negChance ) ) twistRad = -twistRad;
+
+        const axes = this.computeAxes( a, b );
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        let v;
+        if( isSub ){
+            // Sub divide Edge
+            v = new Vec3()
+            .fromLerp( a, b, 0.5 )              // Mid Point
+            .sub( a )                           // Direction
+            .axisAngle( axes[0], arcRad )       // Arc Rotate
+            .axisAngle( axes[2], twistRad )     // Twist Rotate
+            .add( a );                          // From edge origin
+        }else{
+            // Branch out from edge
+            v = new Vec3()
+            .fromSub( b, a )                    // Direction
+            .scale( this.branchScale )          // Resize branch
+            .axisAngle( axes[0], arcRad )       // Arc Rotate
+            .axisAngle( axes[2], twistRad )     // Twist Rotate
+            .add( b );                          // Attach to Edge
+        }
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        const i = pnts.length;
+        pnts.push( v );
+        return i;
+    }
+}
+
+</script>
+
+<style>
+    .ui{ position:fixed; top:10px; left:10px; color:white; font-family:monospace; display:flex; flex-direction: column; }
+    .row{ display:flex; flex-direction:row; align-items: center; border:0px solid red; margin-bottom:5px;}
+    .row span{ margin: 0px 5px; flex:0 0 120px; }
+    .row input[type=number]{ background-color:black; border:1px solid #505050; color:white; padding:2px 5px; width:100px; }
+    .row input:focus{ outline:none; }
+</style>
+
+<div class="ui">
+    <div class="row">
+        <span>Seed</span>
+        <input type="number" id="in_seed" value="1" min="1" max="9999" step="0.1">
+    </div>
+
+    <div class="row">
+        <span>Iteration</span>
+        <input type="number" id="in_iter" value="6" min="1" max="10" step="1" data-type="int">
+    </div>
+
+    <div class="row">
+        <span>Branch Prob</span>
+        <input type="number" id="in_branchProbability" value="0.7" min="0" max="1.0" step="0.1">
+    </div>
+
+    <div class="row">
+        <span>Branch Scale</span>
+        <input type="number" id="in_branchScale" value="0.8" min="0.1" max="1.5" step="0.1">
+    </div>
+
+    <div class="row">
+        <span>Min Arc Angle</span>
+        <input type="number" id="in_minArc" value="10" min="0" max="180" step="5">
+    </div>
+
+    <div class="row">
+        <span>Max Arc Angle</span>
+        <input type="number" id="in_maxArc" value="30" min="0" max="180" step="5">
+    </div>
+
+    <div class="row">
+        <span>Arc Negative</span>
+        <input type="checkbox" id="arcNegAngle" checked="true">
+    </div>
+
+    <div class="row">
+        <span>Min Twist Angle</span>
+        <input type="number" id="in_minTwist" value="10" min="0" max="180" step="5">
+    </div>
+
+    <div class="row">
+        <span>Max Twist Angle</span>
+        <input type="number" id="in_maxTwist" value="180" min="0" max="180" step="5">
+    </div>
+
+    <div class="row">
+        <span>Twist Negative</span>
+        <input type="checkbox" id="twistNegAngle" checked="true">
+    </div>
+</div>
+
+</body></html>

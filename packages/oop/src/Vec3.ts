@@ -296,10 +296,31 @@ export default class Vec3 extends Array< number >{
     }
 
     /** Project Postion onto a Plane */
-    fromPlaneProj( v:TVec3, planeNorm: TVec3, planePos: TVec3 ): this{
-        const planeConst    = -Vec3.dot( planePos, planeNorm );
-        const scl           = Vec3.dot( planeNorm, v ) + planeConst;
-        this.fromScale( planeNorm, -scl ).add( v );
+    fromPlaneProj( v: ConstVec3, planePos: ConstVec3, planeNorm: ConstVec3 ): this{
+        // p = target + norm * -( dot( norm, target ) + planeConst )
+        const planeConst = -Vec3.dot( planePos, planeNorm );
+        const scl        = -( Vec3.dot( planeNorm, v ) + planeConst );
+        this[0] = v[0] + planeNorm[0] * scl;
+        this[1] = v[1] + planeNorm[1] * scl;
+        this[2] = v[2] + planeNorm[2] * scl;
+        return this;
+    }
+
+    /** Project one vector onto another */
+    fromProject( from: ConstVec3, to: ConstVec3 ): this{
+        // Modified from https://github.com/Unity-Technologies/UnityCsReference/blob/master/Runtime/Export/Math/Vector3.cs#L265
+        // dot( a, b ) / dot( b, b ) * b
+        const denom = Vec3.dot( to, to );
+        if( denom < 0.000001 ){
+            this[ 0 ] = 0;
+            this[ 1 ] = 0;
+            this[ 2 ] = 0;
+        }else{
+            const scl = Vec3.dot( from, to ) / denom;
+            this[ 0 ] = to[ 0 ] * scl;
+            this[ 1 ] = to[ 1 ] * scl;
+            this[ 2 ] = to[ 2 ] * scl;
+        }
         return this;
     }
 

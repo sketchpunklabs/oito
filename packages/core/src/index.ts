@@ -1,11 +1,12 @@
-import Maths    from './Maths';
-import Wave     from './Wave';
-import Lerp     from './Lerp';
-import Colour   from './Colour';
-import Gradient from './Gradient';
-import Easing   from './Easing';
-import nanoID   from './nanoID';
+import Maths        from './Maths';
+import Wave         from './Wave';
+import Lerp         from './Lerp';
+import Colour       from './Colour';
+import Gradient     from './Gradient';
+import Easing       from './Easing';
+import nanoID       from './nanoID';
+import RandomLCG    from './RandomLCG';
 
 export {
-    Maths, Wave, Lerp, Colour, Gradient, Easing, nanoID,
+    Maths, Wave, Lerp, Colour, Gradient, Easing, nanoID, RandomLCG,
 };
