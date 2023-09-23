@@ -218,10 +218,26 @@ class Vec3 extends Array {
     this[2] = factor * norm[2] + dir[2];
     return this;
   }
-  fromPlaneProj(v, planeNorm, planePos) {
+  fromPlaneProj(v, planePos, planeNorm) {
     const planeConst = -Vec3.dot(planePos, planeNorm);
-    const scl = Vec3.dot(planeNorm, v) + planeConst;
-    this.fromScale(planeNorm, -scl).add(v);
+    const scl = -(Vec3.dot(planeNorm, v) + planeConst);
+    this[0] = v[0] + planeNorm[0] * scl;
+    this[1] = v[1] + planeNorm[1] * scl;
+    this[2] = v[2] + planeNorm[2] * scl;
+    return this;
+  }
+  fromProject(from, to) {
+    const denom = Vec3.dot(to, to);
+    if (denom < 1e-6) {
+      this[0] = 0;
+      this[1] = 0;
+      this[2] = 0;
+    } else {
+      const scl = Vec3.dot(from, to) / denom;
+      this[0] = to[0] * scl;
+      this[1] = to[1] * scl;
+      this[2] = to[2] * scl;
+    }
     return this;
   }
   fromBuf(ary, idx) {
@@ -1526,6 +1542,14 @@ class Vec3 extends Array {
     this[1] = -a[1];
     return this;
   }
+  fromNorm(a) {
+    const mag = Math.sqrt(a[0] ** 2 + a[1] ** 2);
+    if (mag == 0)
+      return this;
+    this[0] = a[0] / mag;
+    this[1] = a[1] / mag;
+    return this;
+  }
   fromInvert(a) {
     this[0] = a[0] != 0 ? 1 / a[0] : 0;
     this[1] = a[1] != 0 ? 1 / a[1] : 0;
@@ -2788,6 +2812,14 @@ class Vec3 extends Array {
       this.pos.add(new Vec3().fromMul(cp, this.scl).transformQuat(this.rot));
     return this;
   }
+  pivotRot(pivot, q) {
+    this.rot.pmul(q);
+    const offset = new Vec3().fromSub(this.pos, pivot).transformQuat(q);
+    this.pos[0] = pivot[0] + offset[0];
+    this.pos[1] = pivot[1] + offset[1];
+    this.pos[2] = pivot[2] + offset[2];
+    return this;
+  }
   fromMul(tp, tc) {
     const v = new Vec3().fromMul(tp.scl, tc.pos).transformQuat(tp.rot);
     this.pos.fromAdd(tp.pos, v);
@@ -3320,6 +3352,13 @@ class Vec3 extends Array {
     const x = v[0], y = v[1], z = v[2];
     o[0] = x;
     o[1] = -y;
+    o[2] = -z;
+    return o;
+  }
+  static yn_yn(v, o) {
+    const x = v[0], y = v[1], z = v[2];
+    o[0] = -x;
+    o[1] = y;
     o[2] = -z;
     return o;
   }

@@ -6,7 +6,10 @@ import Grid         from './3d/Grid';
 import Cube         from './3d/Cube';
 import Torus        from './3d/Torus';
 
+import TerrainCube  from './3d/specialties/TerrainCube';
+
 export {
     Polygon2D, Line2D,
     Quad, Grid, Cube, Torus,
+    TerrainCube,
 };

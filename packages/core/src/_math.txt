@@ -1,0 +1,66 @@
+// ############################################################
+
+Interesting animation wave
+( sin( 2t) * 0.5 + 0.5 ) ^64 * sin( 64t )
+https://mastodon.gamedev.place/@lisyarus/111064588454272796
+
+
+// ############################################################
+
+ZOOMING
+https://x.com/XorDev/status/1703873385946607924?s=20
+
+if WheelUp : zoom *= 1.2;
+if wheelDn : zoom /= 1.2;
+
+or 
+
+zoom *= exp( mouse_wheel_up() - mouse_wheel_down() ) * SENSITIVITY );
+
+or 
+
+zoom *= power( ZOOM_FACTOR, mouse_wheel_up() - mouse_wheel_down());
+
+or 
+
+zoom_target *= pow( 0.8, mouse_wheel_delta );
+zoom += (zoom_target - zoom) * (1 - exp( - dt / smoothness ) );
+
+
+// ############################################################
+
+https://allenchou.net/2015/04/game-math-precise-control-over-numeric-springing/
+https://github.com/TheAllenChou/numeric-springing
+http://allenchou.net/2015/04/game-math-numeric-springing-examples/
+http://allenchou.net/2015/04/game-math-more-on-numeric-springing/
+
+ I used a float spring and a vector spring to smoothly track the object's speed and movement direction, respectively. 
+ I then derive a scale modifier s linearly proportional to the smoothed speed. Finally, the object's transform is set to:
+Transform2D(a, obj.position) * Transform2D(Vector2(1.0 + s, 0.0), Vector2(0.0, 1.0 / (1.0 + s)), Vector2.ZERO) * Transform2D(-a, Vector2.ZERO)
+
+/*
+  x     - value             (input/output)
+  v     - velocity          (input/output)
+  xt    - target value      (input)
+  zeta  - damping ratio     (input)  // 0.23. osc size decreases 99.7 every sec
+  omega - angular frequency (input)  // 2 * PI * X, Osc per sec
+  h     - time step         (input) // DT
+*/
+void Spring
+(
+  float &x, float &v, float xt, 
+  float zeta, float omega, float h
+)
+{
+  const float f = 1.0f + 2.0f * h * zeta * omega;
+  const float oo = omega * omega;
+  const float hoo = h * oo;
+  const float hhoo = h * hoo;
+  const float detInv = 1.0f / (f + hhoo);
+  const float detX = f * x + h * v + hhoo * xt;
+  const float detV = v + hoo * (xt - x);
+  x = detX * detInv;
+  v = detV * detInv;
+}
+
+// ############################################################

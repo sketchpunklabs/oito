@@ -11,41 +11,78 @@ import TerrainCube  from '../../../packages/geo/src/3d/specialties/TerrainCube.t
 //#region MAIN
 let App   = useDarkScene( useThreeWebGL2() );
 let Debug = {};
-let Ref   = {};
+let Ref   = {
+    cells: 40,
+
+    rays: [
+        [0.3, 2.0, 0.3],
+        [1.2, 2.0, 0.7 ],
+        [0.9, 2.0, 1.5 ],
+    ],
+};
 
 window.addEventListener( 'load', async _=>{
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Setup
-    App.sphericalLook( 0, 40, 5 );
-    // Debug = await useVisualDebug( App );
+    App.sphericalLook( -30, 40, 6 );
+    Debug = await useVisualDebug( App );
+    Debug.pnt.useDepth( true );
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    let tGeo = TerrainCube.create( { cells: 12, size:2, height:1 } );
+    let tGeo = TerrainCube.create( { cells: Ref.cells, size:2, height:1, alt:false } );
     let bGeo = Util.geoBuffer( tGeo );
-    let mesh;
+    // let mesh = new THREE.Mesh( bGeo, new THREE.MeshBasicMaterial( { color:0xa0a0a0, flatShading:false, wireframe:false } ) ); //  side:THREE.DoubleSide,
 
     Ref.mat = CustomMaterial();
+    let mesh = new THREE.Mesh( bGeo, Ref.mat );
 
-    mesh = new THREE.Mesh( bGeo, Ref.mat );
-    // mesh = new THREE.Mesh( bGeo, new THREE.MeshBasicMaterial( { color:0xa0a0a0, flatShading:false, wireframe:false } ) ); //  side:THREE.DoubleSide,
     App.scene.add( mesh );
 
-    // mesh = new THREE.Mesh( bGeo, new THREE.MeshPhongMaterial( { color:0x000000, flatShading:false, wireframe:true } ) ); //  side:THREE.DoubleSide,
-    // App.scene.add( mesh );
+
+    Ref.wave = new SineWave();
+    // const p = Ref.wave.getHit( [0.7, 2.0, 1.2] );
+
+    // Debug.pnt.add( p, 0x00ffff, 3 );
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    App.renderLoop();
+    // App.renderLoop();
     App.createRenderLoop( onPreRender ).start();
 });
 
 function onPreRender( dt, et ){
+    et *= 2.5;
+
     Ref.mat.clock = et;
+    drawHit( et );
+}
+
+function drawHit( et ){
+    Debug.reset();
+    const colors = [ 0x00ffff, 0xffff00, 0xff00ff ];
+
+    let hit;
+    let col;
+    let c = 0;
+    for( const r of Ref.rays ){
+        col = colors[ c++ ];
+        hit = Ref.wave.getHit( r, et );
+
+        Debug.ln.add( r, hit, col );
+        Debug.pnt.add( hit, col, 4 );
+        Debug.pnt.add( r, col, 5, 11 );
+    }
 }
 
 // #endregion
 
 
+// https://github.com/GarrettGunnell/Water
+// https://www.youtube.com/watch?v=PH9q0HNBjT4&list=WL&index=16
+// WAVE EQUATION :
+// phase = speed * ( 2 / wavelength )
+// freq  = 2 / wavelength
+// h     = amp * sin( x * freq + time * phase )
+// h     = amp * e^( sin(x)-1 ) 
 
 function CustomMaterial(){
     const mat = new THREE.RawShaderMaterial({
@@ -55,8 +92,7 @@ function CustomMaterial(){
         clock       : { value : 0 },
 
         GridSize    : { value : 2 },
-        GridRes     : { value : 12 },
-        GridHeight  : { value : 1 },
+        GridRes     : { value : Ref.cells+1 },
     },
     vertexShader    : `#version 300 es
     in vec3 position;
@@ -69,29 +105,72 @@ function CustomMaterial(){
     
     uniform float clock;
 
-    /////////////////////////////////////////////////////////////////
-    
+    out vec3 fragNorm;
+    out vec3 fragWPos;
 
     /////////////////////////////////////////////////////////////////
-    
+    // #region SIGN WAVE
+
+    struct Wave{
+        vec2 dir;
+        float freq;
+        float speed;
+        float steep;
+        float amp;
+    };
+
+    const int waveCnt = 3;
+    Wave[] waves = Wave[](
+        Wave( vec2( 0.5, 0.5 ), 0.3, 1.0, 2.0, 0.3 ),
+        Wave( vec2( 0.0, 1.0 ), 0.4, 1.0, 1.0, 0.1 ),
+        Wave( vec2( 1.0, 0.5 ), 0.6, 1.5, 1.0, 0.06 )
+    );
+
+    float sineWave( Wave w, float step, float clock, out vec3 norm ){
+        // Sine used for Height & Normal
+        float t = step * w.freq + clock * w.speed;
+        float s = sin( t ) * 0.5 + 0.5;
+
+        // Compute Normal
+        float h = pow( s, max( 1.0, w.steep - 1.0 ) );
+        float d = w.steep * w.freq * w.amp * h * cos( t );
+        norm   += normalize( vec3( -w.dir.x * d, 1.0, -w.dir.y * d ) );
+
+        // Compute Height
+        return w.amp * pow( s, w.steep );
+    }
+
+    // float sineWaveV1( Wave w, float step, float clock){
+    //     return w.amp * pow( sin( step * w.freq + clock * w.speed ) * 0.5 + 0.5 , w.steep );
+    // }
+
+    // vec3 sineWaveNormalV1( Wave w, float step, float clock ){
+    //     float h = pow( sin( step * w.freq + w.speed * clock ) * 0.5 + 0.5, max( 1.0, w.steep - 1.0 ) );
+    //     float d = w.steep * w.freq * w.amp * h * cos( step * w.freq + clock * w.speed );
+    //     vec2  n = -w.dir * d;
+    //     return normalize( vec3( n.x, 1.0, n.y ) );
+    // }
+
+    // #endregion
+
+    /////////////////////////////////////////////////////////////////
+    // #region GRID
+    const float FLOOR = 0.001;
     uniform float GridSize;
     uniform float GridRes;
-
-    const float FLOOR = 0.001;
-
-    vec2 gridCenterCoord( vec2 p ){
-        float inc = GridSize / GridRes;
-        p += vec2( GridSize * 0.5 );       // Shift so top Left is at origin
-        return floor( p / vec2( inc ) );
-    }
 
     vec2 gridCoord( vec2 p ){
         float inc = GridSize / GridRes;
         return floor( p / vec2( inc ) );
     }
 
-    out vec3 fragNorm;
-    out vec3 fragWPos;
+    vec2 gridCenterCoord( vec2 p ){
+        float inc = GridSize / GridRes;
+        p += vec2( GridSize * 0.5 );       // Shift so top Left is at origin
+        return floor( p / vec2( inc ) );
+    }
+    
+    // #endregion
 
     /////////////////////////////////////////////////////////////////
 
@@ -100,46 +179,26 @@ function CustomMaterial(){
         fragNorm = normal;
 
         if( pos.y > FLOOR ){
+            float minH = 1.0;
             vec2 coord = gridCoord( pos.xz );
-            // pos.y += coord.x * 0.1; // TEST COORDS
+            vec3 norm  = vec3( 0.0 );
 
-            // https://www.youtube.com/watch?v=PH9q0HNBjT4&list=WL&index=16
-            // WAVE EQUATION :
-            // phase = speed * ( 2 / wavelength )
-            // freq  = 2 / wavelength
-            // h     = amp * sin( x * freq + time * phase )
-            // h     = amp * e^( sin(x)-1 ) 
+            // Wave w      = waves[ 0 ];
+            // float step  = dot( coord, normalize( w.dir ) );
+            // pos.y       = minH + sineWave( w, step, clock, norm );
 
+            float h = 0.0;
+            if( waveCnt > 0 ) h += sineWave( waves[0], dot( coord, normalize( waves[0].dir ) ), clock, norm );
+            if( waveCnt > 1 ) h += sineWave( waves[1], dot( coord, normalize( waves[1].dir ) ), clock, norm );
+            if( waveCnt > 2 ) h += sineWave( waves[2], dot( coord, normalize( waves[2].dir ) ), clock, norm );
 
-            vec2 dir   = vec2( 0.5, 0.5 );
-            float minH = 0.8;
-            float xz   = coord.x * dir.x + coord.y * dir.y; // dot( coord, dir );
-            float freq = 1.0;
-            float amp  = 0.2;
-            float speed = 2.0;
-            float steep = 5.0;
+            pos.y = minH + h;
 
-            // pos.y = minH + amp * sin( xz * freq + clock * speed ); // w.amplitude * sin(xz * freq + t);   
-
-            // pos.y = minH + 2.0 * amp * pow( (sin( xz * freq + clock * speed ) + 1.0) / 2.0, steep );
-            pos.y = minH + 2.0 * amp * pow( sin( xz * freq + clock * speed ) * 0.5 + 0.5 , steep ); // better
-
+            // Only Apply Wave Normals on top face, use normal to find it
+            if( normal.x < 0.001 && normal.z < 0.001 && normal.y > 0.9 ){
+                fragNorm = norm;
+            }
         }
-
-        // if( pos.y > FLOOR ){
-        //     vec2 grid   = gridCenterCoord( pos.xz );
-        //     pos.y       = Height * getWaves( grid * GridFreq, iteration, Clock );
-
-        //     // Only Apply Wave Normals on top face, so if the normal direction is up, has to be top face.
-        //     if( normal.x < 0.001 && normal.z < 0.001 && normal.y > 0.9 ){
-        //         fragNorm = getWavesNorm( pos.y, grid * GridFreq, 0.001, iteration, Clock, Height );
-        //     }
-            
-        //     /* Blockness, is just a Snap from what I can tell
-        //     float Snap = 0.1;
-        //     pos.y      = floor( pos.y / Snap ) * Snap;
-        //     */
-        // }
 
         vec4 wPos   = modelMatrix * vec4( pos, 1.0 );
         fragWPos    = wPos.xyz;
@@ -153,70 +212,26 @@ function CustomMaterial(){
     in vec3 fragWPos;
 
     uniform vec3 cameraPosition;
-    uniform float GridHeight;
 
     out vec4    outColor;
 
     ////////////////////////////////////////////////////////////////////////
 
-    vec3 rgb( int c ){
-        return vec3(
-            float( ( c >> 16 ) & 0xff ) * 0.00392156863,
-            float( ( c >> 8 ) & 0xff ) * 0.00392156863,
-            float( c & 0xff ) * 0.00392156863
-        );
-    }
-
-    vec3 color_step_ramp( vec3[5] color, float[5] wgt, float t, float feather, int i ){
-        for( i; i > 0; i-- ){
-            if( ( wgt[ i ] - feather ) <= t ){
-                return mix( 
-                    color[ i-1 ], 
-                    color[ i ],
-                    smoothstep( wgt[ i ] - feather, wgt[ i ] + feather, t )
-                );
-            }
-        }
-        return color[ 0 ];
-    }
 
     ////////////////////////////////////////////////////////////////////////
-
-    const vec3 ambient      = vec3( 0.2 );
-    const vec3 light_pos    = vec3( 9.0, 8.0, 10.0 );
-    const vec3 light_color  = vec3( 1.0, 1.0, 1.0 );
-    const vec3	specular_color      = vec3( 1.0, 1.0, 1.0 );
-    const float	specular_strength   = 1.0;
-    const float	specular_shine      = 32.0;
+    const vec3 lightWPos = vec3( 10.0, 10.0, 10.0 );
 
     void main(){
-        //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        // Color Ramp based on Vertex Height
-        vec3	ramp_col[5] = vec3[]( rgb(0x6b541d), rgb(0x00fdf2), rgb(0xdbb976), rgb(0x17e45d), rgb(0xd0d0d0) );
-        float	ramp_wgt[5] = float[]( 0.0, 0.2, 0.5, .7, .95 );
-        float tc            = clamp( fragWPos.y / GridHeight, 0.0, 1.0 );
-        vec3 base_color     = color_step_ramp( ramp_col, ramp_wgt, tc, 0.1, 4 );
+        // vec3 N = normalize( cross( dFdx(fragWPos), dFdy(fragWPos) ) );
+        // vec3 N    = normalize( fragNorm );
+        
+        float ns  = 4.0; // Normal is to light, scale it up to improve renderering
+        vec3 N    = normalize( vec3( fragNorm.x * ns, fragNorm.y, fragNorm.z * ns ) );
 
-        //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        vec3 norm     = normalize( cross( dFdx(fragWPos), dFdy(fragWPos) ) );
-        // vec3 norm       = normalize( fragNorm );				// Must normalized, Since it has been interpolated
-        vec3 dir_light  = normalize( light_pos - fragWPos );	// Direction of light from fragment
-        
-        //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        // DIFFUSE LIGHT
-        float diff      = max( dot( norm, dir_light ), 0.0 ); 	// Angle between Frag Normal and Light Direction ( 0 to 1 )
-        vec3 diffuse    = diff * light_color;					// Use the angle to scale the amount of light to use.
-        
-        //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        // SPECULAR LIGHT
-        vec3 dir_reflect    = reflect( -dir_light, norm );		// Reflection Dir of Fragment to Light
-        vec3 dir_frag_cam   = normalize( cameraPosition - fragWPos );	// Dir from Fragment to Camera
-        float specular      = specular_strength * pow( max( dot( dir_frag_cam, dir_reflect ), 0.0 ), specular_shine );
-        
-        //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        // OUTPUT
-        outColor        = vec4( base_color.rgb * ( ambient + diffuse ), 1.0 );
-        outColor.rgb    = mix( outColor.rgb, specular_color, specular );
+        vec3 L    = normalize( lightWPos - fragWPos );
+        float NdL = clamp( dot( L, N ), 0.0, 1.0 );
+
+        outColor = vec4( vec3( NdL ), 1.0 );
     }`});
 
     Object.defineProperty( mat, 'clock', { 
@@ -224,6 +239,51 @@ function CustomMaterial(){
     });
     
     return mat;
+}
+
+import { Vec2 } from "@oito/oop";
+
+class SineWave{
+    minH     = 1;
+    gridSize = 2;
+    gridRes  = Ref.cells + 1;
+
+    waves = [
+        { dir:[ 0.5, 0.5 ], freq:0.3, speed:1.0, steep:2.0, amp:0.3 },
+        { dir:[ 0.0, 1.0 ], freq:0.4, speed:1.0, steep:1.0, amp:0.1 },
+        { dir:[ 1.0, 0.5 ], freq:0.6, speed:1.5, steep:1.0, amp:0.06 },
+    ];
+
+    calcWaveH( w, step, clock ){
+        // Sine used for Height & Normal
+        const t = step * w.freq + clock * w.speed;
+        const s = Math.sin( t ) * 0.5 + 0.5;
+
+        // Compute Height
+        return w.amp * Math.pow( s, w.steep );
+    }
+
+    getHit( p, clock=0 ){
+        // [0.7, 2.0, 1.2]
+        const coord = this.gridCoord( p );
+        const dir   = new Vec2();
+
+        let steps;
+        let h = 0;
+        for( const w of this.waves ){
+
+            steps = Vec2.dot( coord, dir.fromNorm( w.dir ) );
+            h    += this.calcWaveH( w, steps, clock );
+        }
+
+        return [ p[0], this.minH + h, p[2] ];
+    }
+
+    gridCoord( p ){
+        const inc = this.gridSize / this.gridRes;
+        return [ p[0] / inc , p[2] / inc ];
+    }
+
 }
 
 </script></body></html>

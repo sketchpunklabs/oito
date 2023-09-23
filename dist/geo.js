@@ -331,6 +331,47 @@ import {Vec2,Vec3}from'./oop.js';class Line2D {
     }
     return out;
   }
+  static gridEdgeLoopIndices(xCells, yCells) {
+    const xLen = xCells + 1;
+    const out = [];
+    const t = xLen * yCells;
+    let i;
+    for (i = 0; i <= yCells; i++)
+      out.push(xLen * i);
+    for (i = 1; i <= xCells; i++)
+      out.push(i + t);
+    for (i = xCells - 1; i >= 0; i--)
+      out.push(xLen * i + xCells);
+    for (i = xCells - 1; i >= 1; i--)
+      out.push(i);
+    return out;
+  }
+  static gridEdgeIndices(xCells, yCells) {
+    const a = [];
+    const b = [];
+    const c = [];
+    const d = [];
+    const xLen = xCells + 1;
+    const t = xLen * yCells;
+    let i;
+    for (i = 0; i <= yCells; i++)
+      a.push(xLen * i);
+    for (i = 0; i <= xCells; i++)
+      b.push(i + t);
+    for (i = xCells; i >= 0; i--)
+      c.push(xLen * i + xCells);
+    for (i = xCells; i >= 0; i--)
+      d.push(i);
+    return [a, b, c, d];
+  }
+  static gridTexcoord(out, xLen, yLen) {
+    let x, y, yt;
+    for (y = 0; y <= yLen; y++) {
+      yt = 1 - y / yLen;
+      for (x = 0; x <= xLen; x++)
+        out.push(x / xLen, yt);
+    }
+  }
 }class UtilIndices {
   static grid(out, cSize, rSize, initIdx = 0, loop = 0, revQuad = false) {
     const cols = cSize + 1;
@@ -711,6 +752,10 @@ function warp(verts, radius) {
   static map(x, xMin, xMax, zMin, zMax) {
     return (x - xMin) / (xMax - xMin) * (zMax - zMin) + zMin;
   }
+  static remapAngle180(deg) {
+    const ang = deg % 360;
+    return ang > 180 ? ang - 360 : ang < -180 ? ang + 360 : ang;
+  }
   static snap(x, step) {
     return Math.floor(x / step) * step;
   }
@@ -719,6 +764,9 @@ function warp(verts, radius) {
   }
   static baseLog(base, val) {
     return Math.log(val) / Math.log(base);
+  }
+  static expDecay(x, rate = 0.5) {
+    return Math.exp(-rate * x);
   }
   static mod(a, b) {
     const v = a % b;
@@ -866,4 +914,111 @@ function warp(verts, radius) {
     }
     return rtn;
   }
-}export{Cube,Grid,Line2D,Polygon2D,Quad,Torus};
+}class TerrainCube {
+  static create(_props = {}) {
+    const props = Object.assign({
+      size: 1,
+      height: 1,
+      cells: 2,
+      alt: true
+    }, _props);
+    const rtn = { vertices: [], indices: [], normals: [], texcoord: [] };
+    UtilVertices.createGrid(rtn.vertices, props.size, props.size, props.cells, props.cells, false, false);
+    if (props.alt)
+      UtilIndices.gridAlt(rtn.indices, props.cells, props.cells, 0, 0, true);
+    else
+      UtilIndices.grid(rtn.indices, props.cells, props.cells, 0, 0, false);
+    UtilVertices.gridTexcoord(rtn.texcoord, props.cells, props.cells);
+    for (let i = 1; i < rtn.vertices.length; i += 3)
+      rtn.vertices[i] = props.height;
+    for (let i = 0; i < rtn.vertices.length / 3; i++)
+      rtn.normals.push(0, 1, 0);
+    const edges = UtilVertices.gridEdgeIndices(props.cells, props.cells);
+    this.addSide(rtn, edges[0], [-1, 0, 0]);
+    this.addSide(rtn, edges[1], [0, 0, 1]);
+    this.addSide(rtn, edges[2], [1, 0, 0]);
+    this.addSide(rtn, edges[3], [0, 0, -1]);
+    this.addCap(rtn, edges);
+    return rtn;
+  }
+  static addSide(geo, iAry, norm) {
+    const iOffset = geo.vertices.length / 3;
+    let ii;
+    let u = 0;
+    let uu = 0;
+    for (const i of iAry) {
+      ii = i * 3;
+      uu = u++ / (iAry.length - 1);
+      geo.texcoord.push(uu, 1, uu, 0);
+      geo.normals.push(...norm, ...norm);
+      geo.vertices.push(
+        geo.vertices[ii + 0],
+        geo.vertices[ii + 1],
+        geo.vertices[ii + 2],
+        geo.vertices[ii + 0],
+        0,
+        geo.vertices[ii + 2]
+      );
+    }
+    for (let i = 0; i < iAry.length - 1; i++) {
+      ii = iOffset + i * 2;
+      geo.indices.push(
+        ii,
+        ii + 1,
+        ii + 2,
+        ii + 2,
+        ii + 1,
+        ii + 3
+      );
+    }
+  }
+  static addCap(geo, edges) {
+    const iOffset = geo.vertices.length / 3;
+    const mid = [0, 0];
+    let ii;
+    let i;
+    for (i = 0; i < edges[0].length; i++) {
+      ii = 3 * edges[0][i];
+      mid[0] += geo.vertices[ii + 0];
+      mid[1] += geo.vertices[ii + 2];
+      geo.vertices.push(geo.vertices[ii + 0], 0, geo.vertices[ii + 2]);
+      geo.texcoord.push(0, i / (edges[0].length - 1));
+      geo.normals.push(0, -1, 0);
+    }
+    for (i = 1; i < edges[1].length; i++) {
+      ii = 3 * edges[1][i];
+      mid[0] += geo.vertices[ii + 0];
+      mid[1] += geo.vertices[ii + 2];
+      geo.vertices.push(geo.vertices[ii + 0], 0, geo.vertices[ii + 2]);
+      geo.texcoord.push(i / (edges[1].length - 1), 1);
+      geo.normals.push(0, -1, 0);
+    }
+    for (let i2 = 1; i2 < edges[2].length; i2++) {
+      ii = 3 * edges[2][i2];
+      mid[0] += geo.vertices[ii + 0];
+      mid[1] += geo.vertices[ii + 2];
+      geo.vertices.push(geo.vertices[ii + 0], 0, geo.vertices[ii + 2]);
+      geo.texcoord.push(1, 1 - i2 / (edges[2].length - 1));
+      geo.normals.push(0, -1, 0);
+    }
+    for (let i2 = 1; i2 < edges[3].length - 1; i2++) {
+      ii = 3 * edges[3][i2];
+      mid[0] += geo.vertices[ii + 0];
+      mid[1] += geo.vertices[ii + 2];
+      geo.vertices.push(geo.vertices[ii + 0], 0, geo.vertices[ii + 2]);
+      geo.texcoord.push(1 - i2 / (edges[3].length - 1), 0);
+      geo.normals.push(0, -1, 0);
+    }
+    const iMid = geo.vertices.length / 3;
+    const vCnt = iMid - iOffset;
+    mid[0] /= vCnt;
+    mid[1] /= vCnt;
+    geo.vertices.push(mid[0], 0, mid[1]);
+    geo.normals.push(0, -1, 0);
+    geo.texcoord.push(0.5, 0.5);
+    for (let i2 = 0; i2 < vCnt; i2++) {
+      ii = (i2 + 1) % vCnt;
+      geo.indices.push(iOffset + ii, iOffset + i2, iMid);
+    }
+  }
+}export{Cube,Grid,Line2D,Polygon2D,Quad,TerrainCube,Torus};

@@ -1,0 +1,219 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+//#region IMPORTS
+import useThreeWebGL2, { THREE, useDarkScene, useVisualDebug } from '../../_lib/useThreeWebGL2.js';
+import Util         from '../../_lib/misc/Util.js';
+
+import TerrainCube  from '../../../packages/geo/src/3d/specialties/TerrainCube.ts';
+//#endregion
+
+//#region MAIN
+let App   = useDarkScene( useThreeWebGL2() );
+let Debug = {};
+let Ref   = {
+    cells: 40,
+};
+
+window.addEventListener( 'load', async _=>{
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Setup
+    App.sphericalLook( 0, 40, 5 );
+    // Debug = await useVisualDebug( App );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    let tGeo = TerrainCube.create( { cells: Ref.cells, size:2, height:1, alt:false } );
+    let bGeo = Util.geoBuffer( tGeo );
+    // let mesh = new THREE.Mesh( bGeo, new THREE.MeshBasicMaterial( { color:0xa0a0a0, flatShading:false, wireframe:false } ) ); //  side:THREE.DoubleSide,
+
+    Ref.mat = CustomMaterial();
+    let mesh = new THREE.Mesh( bGeo, Ref.mat );
+
+    App.scene.add( mesh );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // App.renderLoop();
+    App.createRenderLoop( onPreRender ).start();
+});
+
+function onPreRender( dt, et ){
+    Ref.mat.clock = et;
+}
+// #endregion
+
+
+// https://www.shadertoy.com/view/MdXyzX
+function CustomMaterial(){
+    const mat = new THREE.RawShaderMaterial({
+    depthTest       : true,
+    transparent 	: false, 
+    uniforms        : { 
+        clock       : { value : 0 },
+
+        GridSize    : { value : 2 },
+        GridRes     : { value : Ref.cells+1 },
+        GridHeight  : { value : 1 },
+    },
+    vertexShader    : `#version 300 es
+    in vec3 position;
+    in vec3 normal;
+    in vec2 uv;
+    
+    uniform mat4 modelMatrix;
+    uniform mat4 viewMatrix;
+    uniform mat4 projectionMatrix;
+    
+    uniform float clock;
+
+    out vec3 fragNorm;
+    out vec3 fragWPos;
+
+    /////////////////////////////////////////////////////////////////
+    // #region FAST WAVE
+
+    #define DRAG_MULT 0.048
+
+    const float phase  = 6.0;
+    const float speed  = 3.0;
+    const float weight = 1.0;
+
+    // Original : https://www.shadertoy.com/view/MdXyzX
+    vec2 fastWaveDX( vec2 pos, vec2 dir, float speed, float freq, float timeshift ){
+        float x     = dot( dir, pos ) * freq + timeshift * speed;
+        float wave  = exp( sin( x ) - 1.0 );
+        float dx    = wave * cos( x );
+        return vec2( wave, -dx );
+    }
+
+    // VoR Notes : This seems to work like Fractal Browning Motion
+    // - Iterations is Octave, Smoother closer to 1, rougher the higher the value.
+    // - Phase is Frequency
+    // - Weight seems to act like Amplitude
+    float fastWave( vec2 pos, int iterations, float time ){
+        float iter      = 0.0;
+        float w         = 0.0;      // Amplitude?
+        float ws        = 0.0;      // Total Amplitude used?
+        float cWeight   = weight;
+        float cSpeed    = speed;
+        float cPhase    = phase;    // Freq?
+
+        for( int i=0; i < iterations; i++ ){
+            vec2 dir    = vec2( sin( iter ), cos( iter ) ); // Compute a wave direction?
+            vec2 res    = fastWaveDX( pos, dir, cSpeed, cPhase, time );
+            
+            pos        += dir * res.y * cWeight * DRAG_MULT;
+            w          += res.x * cWeight;              // Increment Size?
+            ws         += cWeight;                      // Total Amplitude used?
+
+            iter       += 12.0;                         // Effects overall wave shape, Lower numbers make it less chaotic 
+            
+            cWeight     = mix( cWeight, 0.0, 0.2 );     // Decrease amplitude with a gain of 1/4
+            cPhase     *= 1.18;                         // Increase Frequency by lacunarity?
+            cSpeed     *= 1.07;                         // Increase speed of wave
+        }
+    
+        return w / ws;                                  // normalizing the final value?
+    }
+
+    // Samples Right & Forward neighbors to compute normals
+    vec3 fastWaveNorm( float h, vec2 coord, float e, int iter, float time, float depth ){
+        vec3 pntA = vec3( coord.x, h, coord.y );
+        vec3 pntB = pntA + vec3( e, 0.0, 0.0 ); // Left Noise
+        vec3 pntC = pntA + vec3( 0.0, 0.0, e ); // Forward Noise
+
+        pntB.y = fastWave( pntB.xz, iter, time ) * depth;
+        pntC.y = fastWave( pntC.xz, iter, time ) * depth;
+
+        return normalize( cross( pntC - pntA, pntB - pntA ) );
+    }
+
+    // #endregion
+
+    /////////////////////////////////////////////////////////////////
+    // #region GRID
+    const float FLOOR = 0.001;
+    uniform float GridSize;
+    uniform float GridRes;    
+
+    vec2 gridCoord( vec2 p ){
+        float inc = GridSize / GridRes;
+        return floor( p / vec2( inc ) );
+    }
+
+    vec2 gridCenterCoord( vec2 p ){
+        float inc = GridSize / GridRes;
+        p += vec2( GridSize * 0.5 );       // Shift so top Left is at origin
+        return floor( p / vec2( inc ) );
+    }
+    
+    // #endregion
+
+    /////////////////////////////////////////////////////////////////
+
+    void main(){
+        vec3 pos = position;
+        fragNorm = normal;
+
+        if( pos.y > FLOOR ){
+            float minH = 0.5;
+            float H    = 0.8;
+            float freq = 0.05;
+            int   iter = 13;
+
+            vec2 coord = gridCoord( pos.xz );
+            float w    = fastWave( coord * freq, iter, clock );
+            pos.y      = minH + H * w;
+
+            // Blockness, is just a Snap from what I can tell
+            // float Snap = 0.1;
+            // pos.y      = floor( pos.y / Snap ) * Snap;
+
+            // Only Apply Wave Normals on top face, use normal to find it
+            if( normal.x < 0.001 && normal.z < 0.001 && normal.y > 0.9 ){
+                fragNorm = fastWaveNorm( H * w, coord * freq, 0.001, iter, clock, H );
+            }
+        }
+
+        vec4 wPos   = modelMatrix * vec4( pos, 1.0 );
+        fragWPos    = wPos.xyz;
+        gl_Position = projectionMatrix * viewMatrix * wPos;
+    }`,
+
+    fragmentShader  : `#version 300 es
+    precision mediump float;
+
+    in vec3 fragNorm;
+    in vec3 fragWPos;
+
+    uniform vec3 cameraPosition;
+    uniform float GridHeight;
+
+    out vec4    outColor;
+
+    ////////////////////////////////////////////////////////////////////////
+
+
+    ////////////////////////////////////////////////////////////////////////
+    const vec3 lightWPos = vec3( 10.0, 10.0, 10.0 );
+
+    void main(){
+        // vec3 N = normalize( cross( dFdx(fragWPos), dFdy(fragWPos) ) );
+        vec3 N    = normalize( fragNorm );
+        
+        // float ns  = 4.0; // Normal is to light, scale it up to improve renderering
+        // vec3 N    = normalize( vec3( fragNorm.x * ns, fragNorm.y, fragNorm.z * ns ) );
+
+        vec3 L    = normalize( lightWPos - fragWPos );
+        float NdL = clamp( dot( L, N ), 0.0, 1.0 );
+
+        outColor = vec4( vec3( NdL ), 1.0 );
+    }`});
+
+    Object.defineProperty( mat, 'clock', { 
+        set: v=>{ mat.uniforms.clock.value = v } 
+    });
+    
+    return mat;
+}
+
+</script></body></html>

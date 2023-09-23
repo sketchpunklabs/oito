@@ -156,6 +156,15 @@ export default class Vec2 extends Array< number >{
         return this;
     }
 
+    fromNorm( a: ConstVec2 ): this{
+        const mag = Math.sqrt( a[0]**2 + a[1]**2 );
+        if( mag == 0 ) return this;
+
+        this[0] = a[0] / mag;
+        this[1] = a[1] / mag;
+        return this;
+    }
+
     fromInvert( a: ConstVec2 ) : this {
         this[0] = ( a[0] != 0 )? 1 / a[0] : 0;
         this[1] = ( a[1] != 0 )? 1 / a[1] : 0;

@@ -34,6 +34,8 @@ class ShapePointsMesh extends THREE.Points{
 		return this;
     }
 
+    useDepth( b ){ this.material.depthTest = b; return this; }
+
     add( pos, color = this._defaultColor, size = this._defaultSize, shape = this._defaultShape ){
         this._verts.push( pos[0], pos[1], pos[2] );
         this._color.push( ...glColor( color ) );

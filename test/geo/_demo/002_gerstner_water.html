@@ -1,0 +1,316 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+//#region IMPORTS
+import useThreeWebGL2, { THREE, useDarkScene, useVisualDebug } from '../../_lib/useThreeWebGL2.js';
+import Util         from '../../_lib/misc/Util.js';
+
+import TerrainCube  from '../../../packages/geo/src/3d/specialties/TerrainCube.ts';
+import { Vec2 }     from '@oito/oop';
+//#endregion
+
+//#region MAIN
+let App   = useDarkScene( useThreeWebGL2() );
+let Debug = {};
+let Ref   = {
+    cells   : 12,
+    rays    : [
+        [ 0.1, 2.0, 0.1 ], //[0.307, 2.0, 0.307],
+        [ 1, 2.0, 1 ], //[1.231, 2.0, 0.769 ],
+        [ 1.8, 2.0, 1.8 ], //[0.923, 2.0, 1.538 ],
+    ],
+};
+
+window.addEventListener( 'load', async _=>{
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Setup
+    App.sphericalLook( 0, 40, 7 );
+    Debug = await useVisualDebug( App );
+    Debug.pnt.useDepth( true );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    let tGeo = TerrainCube.create( { cells: Ref.cells, size:2, height:1, alt:false } );
+    let bGeo = Util.geoBuffer( tGeo );
+    //let mesh = new THREE.Mesh( bGeo, new THREE.MeshBasicMaterial( { color:0xa0a0a0, flatShading:false, wireframe:false } ) ); //  side:THREE.DoubleSide,
+
+    Ref.mat = CustomMaterial();
+    let mesh = new THREE.Mesh( bGeo, Ref.mat );
+    
+    App.scene.add( mesh );
+
+    Ref.wave = new GerstnerWave();
+    
+    // let t = 0.9;
+    // drawHit( t );
+    // Ref.mat.clock = t;
+
+
+    // for( let i=0; i < 13; i++ ){
+    //     let ii = i*3;
+    //     let v  = [
+    //         tGeo.vertices[ ii+0 ],
+    //         tGeo.vertices[ ii+1 ],
+    //         tGeo.vertices[ ii+2 ],
+    //     ];
+
+    //     let p = Ref.wave.getHit( v, t );
+    //     Debug.pnt.add( p, 0x00ff00, 2 );
+    // }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // App.renderLoop();
+    App.createRenderLoop( onPreRender ).start();
+});
+
+function onPreRender( dt, et ){
+    Ref.mat.clock = et;
+    drawHit( et );
+}
+
+function drawHit( et ){
+    Debug.reset();
+    const colors = [ 0x00ffff, 0xffff00, 0xff00ff ];
+
+    let hit;
+    let col;
+    let c = 0;
+    for( const r of Ref.rays ){
+        col = colors[ c++ ];
+        hit = Ref.wave.getHit( r, et );
+
+        Debug.ln.add( r, hit, col );
+        Debug.pnt.add( hit, col, 4 );
+        Debug.pnt.add( r, col, 5, 11 );
+    }
+
+    Debug.pnt._updateGeometry();
+}
+// #endregion
+
+
+// https://catlikecoding.com/unity/tutorials/flow/waves/
+function CustomMaterial(){
+    const mat = new THREE.RawShaderMaterial({
+    depthTest       : true,
+    transparent 	: false, 
+    uniforms        : { 
+        clock       : { value : 0 },
+        Waves       : { value : new Float32Array( [ 0.5,0.5,0.09,10,  0,1,0.05,5,  0.3,0.7,0.01,2, ]) },
+        WaveCnt     : { value : 3 },
+        WaveSpeed   : { value : 1.0 },
+        WaveXZ      : { value : 1 },
+        GridSize    : { value : 2 },
+        GridRes     : { value : Ref.cells },
+    },
+    vertexShader    : `#version 300 es
+    in vec3 position;
+    in vec3 normal;
+    in vec2 uv;
+    
+    uniform mat4 modelMatrix;
+    uniform mat4 viewMatrix;
+    uniform mat4 projectionMatrix;
+    
+    uniform float clock;
+
+    out vec3 fragNorm;
+    out vec3 fragWPos;
+
+    /////////////////////////////////////////////////////////////////
+    // #region GERSTNER WAVE
+    const float PI_2	= 6.283185307179586;
+
+    uniform 	vec4	Waves[3];   // XY : Direction, Z: Steepness, W: Wavelength
+    uniform 	int 	WaveCnt;
+    uniform		float 	WaveSpeed;
+    uniform 	int 	WaveXZ;
+    uniform     float   GridSize;
+    uniform     float   GridRes;
+
+    // https://catlikecoding.com/unity/tutorials/flow/waves/
+    // XY : norm( Dir.xy ), Z : Steepness( 0->1 ), W : 0 to Total Grid Divisions, Max gives one wave
+    vec3 gerstnerWave( vec2 dir, float steepness, float wavelength, vec2 pnt, float time, out vec3 tangent, out vec3 binormal ){
+        float k = PI_2 / wavelength;	                // Phase Increment
+        float c = sqrt( 9.8 / k );	                    // Phase Speed. Higher the wave, the faster it moves, Gravity Constant
+        float f = k * ( dot( dir, pnt ) - c * time );   // Frequency - Specific time in Phase : PhaseInc * ( Angle - PhaseSpeed * Time )
+        float a = steepness / k;		                // Amptitude, Steep=1, app is at max where mesh will start to loop onto self.
+        
+        // cache results for multi reuse.
+        float sin_f  = sin( f );
+        float cos_f  = cos( f );
+        float acos_f = a * cos_f;
+        float scos_f = steepness * cos_f;
+        float ssin_f = steepness * sin_f;
+
+        /*====================================
+        Must Init outside function as
+        vec3 tangent = vec3( 1.0, 0.0, 0.0 );
+        vec3 binormal = vec3( 0.0, 0.0, 1.0 );
+        normal is normalize(cross(binormal, tangent)); */
+
+        tangent += vec3(
+            -dir.x * dir.x * ssin_f,
+             dir.x * scos_f,
+            -dir.x * dir.y * ssin_f
+        );
+
+        binormal += vec3(
+            -dir.x * dir.y * ssin_f,
+             dir.y * scos_f,
+            -dir.y * dir.y * ssin_f
+        );
+        
+        return vec3( 
+            dir.x * acos_f, 
+            a * sin_f,       
+            dir.y * acos_f
+        );
+    }
+    // #endregion
+
+    /////////////////////////////////////////////////////////////////
+    // #region GRID
+    const float FLOOR = 0.001;
+
+    vec2 gridCenterCoord( vec2 p ){
+        float inc = GridSize / GridRes;
+        p += vec2( GridSize * 0.5 );       // Shift so top Left is at origin
+        return floor( p / vec2( inc ) );
+    }
+
+    vec2 gridCoord( vec2 p ){
+        float inc = GridSize / GridRes;
+        return floor( p / vec2( inc ) );
+        // return p / vec2( inc );
+    }
+    // #endregion
+    
+    /////////////////////////////////////////////////////////////////
+
+    void main(){
+        vec3 pos = position;
+        fragNorm = normal;
+
+        if( pos.y > FLOOR ){
+            vec2    coord       = gridCoord( pos.xz );
+            vec3    offset      = vec3( 0.0 );
+            vec3    tangent     = vec3( 1.0, 0.0, 0.0 ); // Normal is Up, So tangent is Right
+            vec3    binormal    = vec3( 0.0, 0.0, 1.0 ); // ... and Binormal is Forward
+            float   time        = clock * WaveSpeed;    
+
+            if( WaveCnt > 0 ) offset += gerstnerWave( normalize(Waves[0].xy), Waves[0].z, Waves[0].w, coord, time, tangent, binormal );
+            if( WaveCnt > 1 ) offset += gerstnerWave( normalize(Waves[1].xy), Waves[1].z, Waves[1].w, coord, time, tangent, binormal );
+            if( WaveCnt > 2 ) offset += gerstnerWave( normalize(Waves[2].xy), Waves[2].z, Waves[2].w, coord, time, tangent, binormal );
+            
+            if( WaveXZ == 1 ){
+                // Only keep height change
+                offset.x = 0.0;
+                offset.z = 0.0;
+            }else{
+                // keep Wave in cube bounds
+                if( coord.x < 1.0 || coord.x >= GridRes ) offset.x = 0.0;
+                if( coord.y < 1.0 || coord.y >= GridRes ) offset.z = 0.0;
+            }
+
+            pos += offset;
+
+            // Only Apply Wave Normals on top face, use normal to find it
+            if( normal.x < 0.001 && normal.z < 0.001 && normal.y > 0.9 ){
+                fragNorm = normalize( cross( binormal, tangent ) );
+            }
+        }
+
+        vec4 wPos   = modelMatrix * vec4( pos, 1.0 );
+        fragWPos    = wPos.xyz;
+        gl_Position = projectionMatrix * viewMatrix * wPos;
+    }`,
+
+    fragmentShader  : `#version 300 es
+    precision mediump float;
+
+    in vec3 fragNorm;
+    in vec3 fragWPos;
+
+    uniform vec3 cameraPosition;
+
+    out vec4    outColor;
+
+    ////////////////////////////////////////////////////////////////////////
+
+    ////////////////////////////////////////////////////////////////////////
+
+    const vec3 lightWPos = vec3( 9.0, 8.0, 10.0 ); //vec3( 10.0, 10.0, 10.0 );
+
+    void main(){
+        // vec3 N = normalize( cross( dFdx(fragWPos), dFdy(fragWPos) ) );
+        vec3 N    = normalize( fragNorm );
+        vec3 L    = normalize( lightWPos - fragWPos );
+        float NdL = clamp( dot( N, L ), 0.0, 1.0 );
+
+        outColor  = vec4( vec3( NdL ), 1.0 );
+    }`});
+
+    Object.defineProperty( mat, 'clock', { 
+        set: v=>{ mat.uniforms.clock.value = v } 
+    });
+    
+    return mat;
+}
+
+// Old Fungi Version
+// https://sketchpunk.bitbucket.io/src/fungi_v4/002_gerstner_waves.html
+// https://bitbucket.org/sketchpunk/sketchpunk.bitbucket.io/src/c036dfb4b5a93425220b4bb482c0e96e1edc77cf/src/fungi_v4/002_gerstner_waves.html#lines-304
+class GerstnerWave{
+    minH      = 1;
+    gridSize  = 2;
+    gridRes   = Ref.cells;
+    waveSpeed = 1.0;
+
+    waves = [
+        { dir:[ 0.5,0.5 ], steep:0.09, wavelen:10 },
+        { dir:[ 0,1 ], steep:0.05, wavelen:5 },
+        { dir:[ 0.3,0.7 ], steep:0.01, wavelen:2 },
+    ];
+
+    calcWaveH( w, coord, time ){
+        const dir = new Vec2( w.dir ).norm();
+        const k = 6.283185307179586 / w.wavelen;	                // Phase Increment
+        const c = Math.sqrt( 9.8 / k );	                            // Phase Speed. Higher the wave, the faster it moves, Gravity Constant
+        const f = k * ( Vec2.dot( dir, coord ) - c * time );        // Frequency - Specific time in Phase : PhaseInc * ( Angle - PhaseSpeed * Time )
+        const a = w.steep / k;		                                // Amptitude, Steep=1, app is at max where mesh will start to loop onto self.
+        
+        // cache results for multi reuse.
+        const sin_f  = Math.sin( f );
+        // const cos_f  = Math.cos( f );
+        // const acos_f = a * cos_f;
+
+        // Gerstner Position
+        // return [ 
+        //     dir.x * acos_f, 
+        //     a * sin_f,       
+        //     dir.y * acos_f
+        // ];
+
+        // Just the Y value
+        return a * sin_f;
+    }
+
+    getHit( p, clock=0 ){
+        const coord = this.gridCoord( p );
+        const time  = clock * this.waveSpeed;
+
+        let h = 0;
+        for( const w of this.waves ){
+            h += this.calcWaveH( w, coord, time );
+        }
+
+        return [ p[0], this.minH + h, p[2] ];
+    }
+
+    gridCoord( p ){
+        const inc = this.gridSize / this.gridRes;
+        return [ p[0] / inc , p[2] / inc ];
+    }
+}
+
+</script></body></html>

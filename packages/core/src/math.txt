@@ -1,3 +1,0 @@
-Interesting animation wave
-( sin( 2t) * 0.5 + 0.5 ) ^64 * sin( 64t )
-https://mastodon.gamedev.place/@lisyarus/111064588454272796

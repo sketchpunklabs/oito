@@ -9,6 +9,7 @@ type Props = {
     size   ?: number,
     height ?: number,
     cells  ?: number,
+    alt    ?: boolean,
 };
 // #endregion
 
@@ -20,6 +21,7 @@ export default class TerrainCube{
             size    : 1,
             height  : 1,
             cells   : 2,
+            alt     : true,
         }, _props );
 
         const rtn: TGeo = { vertices:[], indices:[], normals:[], texcoord:[] };
@@ -27,7 +29,10 @@ export default class TerrainCube{
         // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         // Create top grid face
         UtilVertices.createGrid( rtn.vertices, props.size, props.size, props.cells, props.cells, false, false );
-        UtilIndices.gridAlt( rtn.indices, props.cells, props.cells, 0, 0, true );
+        
+        if( props.alt ) UtilIndices.gridAlt( rtn.indices, props.cells, props.cells, 0, 0, true );
+        else            UtilIndices.grid( rtn.indices, props.cells, props.cells, 0, 0, false );
+
         UtilVertices.gridTexcoord( rtn.texcoord, props.cells, props.cells );
 
         // & move it into height position

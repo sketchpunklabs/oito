@@ -1,0 +1,22 @@
+https://github.com/zalo/MathUtilities/tree/master
+- Generalized Mesh Deformation
+- Quasirandom Point Generation : https://github.com/zalo/MathUtilities/blob/master/Assets/Quasirandom/QuasirandomSequence.cs#L16
+- Pivot Point : https://github.com/zalo/MathUtilities/blob/master/Assets/Pivot/Pivot.cs
+- Kalman Filter : Smoothout noise
+- Verlet Softbody, Rigidbody, and Chain
+- Rotational Spring: https://github.com/zalo/MathUtilities/blob/master/Assets/Verlet/Rigidbody/RotationalSpring/RotationalSpring.cs
+- Stereographic/Fisheye
+
+
+https://zalo.github.io/blog/kabsch/
+Shape Matching Example is a great Physics example of rigid particles without using
+distance constraints
+
+
+https://zalo.github.io/blog/polar-decomposition/
+Interesting example of Finding the optimal axes from various directions
+
+https://zalo.github.io/blog/line-fitting/
+
+https://zalo.github.io/blog/inverse-kinematics/
+https://zalo.github.io/blog/constraints/
