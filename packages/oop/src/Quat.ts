@@ -1365,6 +1365,56 @@ public const float SQRT2 = 1.41421356237f;
 			};
 		}
 
+        https://x.com/FreyaHolmer/status/1706416798562693498?s=20
+        RSQRT2 = 1 / SQRT( 2 )
+/// <summary>Rotates 180° around the extrinsic pre-rotation X axis, sometimes this is interpreted as a world space rotation, as opposed to rotating around its own axes</summary>
+		[MethodImpl( INLINE )] public static Quaternion Rotate180AroundExtrX( this Quaternion q ) => new(q.w, -q.z, q.y, -q.x);
+
+		/// <summary>Rotates 180° around the extrinsic pre-rotation Y axis, sometimes this is interpreted as a world space rotation, as opposed to rotating around its own axes</summary>
+		[MethodImpl( INLINE )] public static Quaternion Rotate180AroundExtrY( this Quaternion q ) => new(q.z, q.w, -q.x, -q.y);
+
+		/// <summary>Rotates 180° around the extrinsic pre-rotation Z axis, sometimes this is interpreted as a world space rotation, as opposed to rotating around its own axes</summary>
+		[MethodImpl( INLINE )] public static Quaternion Rotate180AroundExtrZ( this Quaternion q ) => new(-q.y, q.x, q.w, -q.z);
+
+		/// <summary>Rotates 180° around its local X axis</summary>
+		[MethodImpl( INLINE )] public static Quaternion Rotate180AroundSelfX( this Quaternion q ) => new(q.w, q.z, -q.y, -q.x);
+
+		/// <summary>Rotates 180° around its local Y axis</summary>
+		[MethodImpl( INLINE )] public static Quaternion Rotate180AroundSelfY( this Quaternion q ) => new(-q.z, q.w, q.x, -q.y);
+
+		/// <summary>Rotates 180° around its local Z axis</summary>
+		[MethodImpl( INLINE )] public static Quaternion Rotate180AroundSelfZ( this Quaternion q ) => new(q.y, -q.x, q.w, -q.z);
+        
+		/// <summary>Rotates this quaternion 180° so that its Y and Z axes are swapped</summary>
+		[MethodImpl( INLINE )] public static Quaternion SwapYZ( this Quaternion q ) {
+			return new Quaternion(
+				Mathfs.RSQRT2 * ( q.y - q.z ),
+				Mathfs.RSQRT2 * ( q.w - q.x ),
+				Mathfs.RSQRT2 * ( q.w + q.x ),
+				Mathfs.RSQRT2 * ( -q.y - q.z )
+			);
+		}
+
+		/// <summary>Rotates this quaternion 180° so that its Z and X axes are swapped</summary>
+		[MethodImpl( INLINE )] public static Quaternion SwapZX( this Quaternion q ) {
+			return new Quaternion(
+				Mathfs.RSQRT2 * ( q.w + q.y ),
+				Mathfs.RSQRT2 * ( q.z - q.x ),
+				Mathfs.RSQRT2 * ( q.w - q.y ),
+				Mathfs.RSQRT2 * ( -q.x - q.z )
+			);
+		}
+
+		/// <summary>Rotates this quaternion 180° so that its X and Y axes are swapped</summary>
+		[MethodImpl( INLINE )] public static Quaternion SwapXY( this Quaternion q ) {
+			return new Quaternion(
+				Mathfs.RSQRT2 * ( q.w - q.z ),
+				Mathfs.RSQRT2 * ( q.w + q.z ),
+				Mathfs.RSQRT2 * ( q.x - q.y ),
+				Mathfs.RSQRT2 * ( -q.x - q.y )
+			);
+		}
+
 */
 
 /*

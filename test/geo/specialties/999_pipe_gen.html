@@ -1,0 +1,228 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+//#region IMPORTS
+import useThreeWebGL2, { useDarkScene, useVisualDebug } from '../../_lib/useThreeWebGL2.js';
+
+// import { Polygon2D } from '../../../packages/geo/src/index.ts';
+//#endregion
+
+//#region MAIN
+let App   = useDarkScene( useThreeWebGL2() );
+let Debug = {};
+let Ref   = {};
+
+// https://gist.github.com/antonkudin/d7ae7aa2d35cf539783b58a0e23074bf
+// https://x.com/antonkudin/status/1706672563487908178?s=20
+
+window.addEventListener( 'load', async _=>{
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Setup
+    App.sphericalLook( 0, 20, 6 );
+    Debug = await useVisualDebug( App );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    App.renderLoop();
+    // App.createRenderLoop( onPreRender ).start();
+});
+
+//#endregion
+
+
+/*
+public class pipeGenerator : MonoBehaviour
+{
+    [SerializeField] Mesh straightMesh;
+    [SerializeField] Mesh elbowMesh;
+    [Space]
+    [SerializeField] Vector3[] pathPoints;
+    [SerializeField] float size = 1;
+    [SerializeField] float startAngle = 0;
+
+    Mesh mesh;
+    MeshFilter meshFilter;
+    MeshRenderer meshRenderer;
+
+    void OnValidate(){
+
+        if(meshFilter==null && !TryGetComponent(out meshFilter)){
+            meshFilter = gameObject.AddComponent<MeshFilter>();
+        }
+
+        if(meshRenderer==null && !TryGetComponent(out meshRenderer)){
+            meshRenderer = gameObject.AddComponent<MeshRenderer>();
+        }
+
+        if(mesh==null) mesh = new Mesh();
+        meshFilter.sharedMesh = mesh;
+
+        if(elbowMesh==null || straightMesh==null) return;
+
+        generatePipeToMesh(ref mesh, pathPoints, size, startAngle, straightMesh, elbowMesh);
+        
+    }
+
+    static public void generatePipeToMesh(ref Mesh combinedMesh, Vector3[] pathPoints, float size, float startAngle, 
+        Mesh straightMesh, Mesh elbowMesh){
+
+        if(pathPoints.Length<2) return;
+
+        List<CombineInstance> combine = new List<CombineInstance>();
+
+        int partI = 0;
+        Vector3 position = pathPoints[0];
+        Vector3 segmentEnd = pathPoints[1];
+        Vector3 direction = segmentEnd - position;
+        float segmentLength = direction.magnitude;
+        direction.Normalize();
+        int partCount = getPartCount(segmentLength, size);
+        float partLength = segmentLength / partCount;
+        Vector3 partScale = getPartScale(size, partLength);
+        
+        Quaternion rotation = turn(Quaternion.identity, Vector3.forward, direction) 
+            * Quaternion.Euler(0,0,startAngle);
+
+        for(int segmI = 0; segmI<pathPoints.Length-1; segmI++){
+
+            if(segmentLength<.001f) continue;
+
+            while(partI<partCount){
+                
+                bool isElbow = segmI<pathPoints.Length-2 && partI==partCount-1;
+
+                if(!isElbow){
+
+                    Matrix4x4 matrix = Matrix4x4.TRS(position, rotation, partScale);
+
+                    combine.Add(new CombineInstance{
+                        mesh = straightMesh,
+                        transform = matrix
+                    });                    
+
+                    position += direction * partLength;
+
+                } else {
+
+                    var matrix = Matrix4x4.TRS(position, rotation, Vector3.one);
+
+                    Vector3 nextPoint = pathPoints[segmI + 2];
+                    Vector3 newDirection = nextPoint - segmentEnd;
+                    segmentLength = (nextPoint - segmentEnd).magnitude;
+                    newDirection.Normalize();
+                    partCount = getPartCount(segmentLength, size);
+                    partLength = segmentLength / partCount;
+
+                    var nextRotation = turn(rotation, direction, newDirection);
+
+                    direction = newDirection;
+                    position = segmentEnd + direction * partLength;
+
+                    var localEndRot = Quaternion.Inverse(rotation) * nextRotation;
+                    var localEndPos = matrix.inverse.MultiplyPoint3x4(position);
+
+                    var bentElbowMesh = makeBentElbowMesh(elbowMesh, localEndPos, localEndRot, size);
+
+                    combine.Add(new CombineInstance{
+                        mesh = bentElbowMesh,
+                        transform = matrix
+                    });
+
+                    rotation = nextRotation;
+                    segmentEnd = nextPoint;
+                    partScale = getPartScale(size, partLength);
+                    
+                    partI = 1; // skip first part next segment, because it's position ocuppied by elbow
+                    break; // exit partI loop
+                }
+
+                partI++;
+            }
+        }
+
+        combinedMesh.Clear();
+        combinedMesh.CombineMeshes(combine.ToArray());
+        combinedMesh.RecalculateNormals();
+        combinedMesh.RecalculateTangents();
+        combinedMesh.RecalculateBounds();
+
+        static Mesh makeBentElbowMesh(Mesh elbowMesh, Vector3 localEndPos, Quaternion localEndRot, float scale){
+
+            Vector3[] vertices = new Vector3[elbowMesh.vertices.Length];
+            elbowMesh.vertices.CopyTo(vertices, 0);
+
+            float dist = Mathf.Clamp01(localEndPos.magnitude) * .5f;
+            Vector3 ctrlPointStart = new Vector3(0,0,dist);
+            Vector3 ctrlPointEnd = localEndPos + localEndRot * new Vector3(0,0,-dist);
+
+            Vector3 endDir = (localEndPos - ctrlPointEnd).normalized;
+            localEndRot = Quaternion.LookRotation(localEndPos - ctrlPointEnd, endDir);
+
+            for (int i = 0; i < vertices.Length; i++) {
+                
+                float t = Mathf.Clamp01(vertices[i].z);
+            
+                Vector3 interpolatedPos = BezierCurve(Vector2.zero, ctrlPointStart, ctrlPointEnd, localEndPos, t);
+                var rot = Quaternion.Slerp(Quaternion.identity, localEndRot, t);
+                vertices[i] = interpolatedPos + rot * new Vector3(vertices[i].x*scale, vertices[i].y*scale, 0);
+            }
+
+            Mesh bentElbowMesh = new Mesh();
+            bentElbowMesh.vertices = vertices;
+            bentElbowMesh.uv = elbowMesh.uv;
+            bentElbowMesh.triangles = elbowMesh.triangles;
+            bentElbowMesh.colors = elbowMesh.colors;
+            return bentElbowMesh;            
+        }
+
+        static Vector3 getPartScale(float size, float partLength) =>
+            new Vector3(size, size, partLength);
+
+        static int getPartCount(float segmentLength, float size) =>
+            Mathf.Max(2, Mathf.RoundToInt(segmentLength / size));
+    }
+
+    static Quaternion turn(Quaternion rotation, Vector3 currentDirection, Vector3 newDirection)
+    {
+        Vector3 rotationAxis = Vector3.Cross(currentDirection, newDirection).normalized;
+        float dotProduct = Vector3.Dot(currentDirection, newDirection);
+        float radians = Mathf.Acos(dotProduct);
+        var deltaRotation = angleAxis(radians, rotationAxis);
+        return deltaRotation * rotation;
+    }
+
+    // same as Quaternion.AngleAxis?
+    static Quaternion angleAxis(float radians, Vector3 axis) // make sure axis is normalized
+    {
+        float halfAngle = radians * 0.5f;
+        float s = Mathf.Sin(halfAngle);
+        float c = Mathf.Cos(halfAngle);
+        return new Quaternion {
+            x = axis.x * s,
+            y = axis.y * s,
+            z = axis.z * s,
+            w = c
+        };
+    }
+
+    static Vector3 BezierCurve(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t)
+    {
+        float u = 1 - t;
+        float tt = t * t;
+        float uu = u * u;
+        float uuu = uu * u;
+        float ttt = tt * t;
+
+        Vector3 p = uuu * p0; // (1-t)^3 * p0
+        p += 3 * uu * t * p1; // 3(1-t)^2 * t * p1
+        p += 3 * u * tt * p2; // 3(1-t) * t^2 * p2
+        p += ttt * p3; // t^3 * p3
+
+        return p;
+    }
+}
+*/
+
+</script></body></html>

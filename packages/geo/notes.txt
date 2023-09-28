@@ -1,1 +1,7 @@
 https://github.com/mattatz/unity-tubular  Tube without torison, uses parallel transport to keep things aligned
+
+Mesh Line
+https://github.com/pmndrs/meshline
+https://mattdesl.svbtle.com/drawing-lines-is-hard
+https://blog.mapbox.com/drawing-antialiased-lines-with-opengl-8766f34192dc
+https://github.com/sketchpunk/temp/blob/master/Fungi_v5_5/_test/shaders/010_lines.html

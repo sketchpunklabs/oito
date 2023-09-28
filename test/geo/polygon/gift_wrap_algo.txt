@@ -1,7 +1,0 @@
-https://www.youtube.com/watch?v=EDO4Va1aHuE
-
-I just discovered the "Gift Wrapping Algorithm". Its mainly for 
-finding the convex hull of points but the video shows you can use 
-it to create concaved hulls too.
-
-This should solve the polygon point sorting problem I had a month or so ago🤔

@@ -5,13 +5,13 @@ export default class RandomLCG{
     // #region MAIN
     _seed !: number;
     _num  !: number;
-    constructor( s = 0 ){ this.seed = s; }
+    constructor( s = 1 ){ this.seed = s; }
     
     _lcg( n:number ): number{ return n * 48271 % 2147483647; }
 
     set seed( s:number ){
-        this._seed = s;
-        this._num  = this._lcg( s );
+        this._seed = Math.max( s, 1 );
+        this._num  = this._lcg( this._seed );
     }
     // #endregion
     
