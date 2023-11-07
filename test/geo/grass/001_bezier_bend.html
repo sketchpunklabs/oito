@@ -1,0 +1,186 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+// #region IMPORTS
+import useThreeWebGL2, { THREE, useDarkScene, useVisualDebug } from '../../_lib/useThreeWebGL2.js';
+// #endregion
+
+// #region MAIN
+let App   = useDarkScene( useThreeWebGL2() );
+let Debug = {};
+let Ref   = {
+    PA: [0,0,0],
+    PB: [0,0.3,0.3],
+    PC: [0,0.7,-0.3],
+    PD: [0,1,0],
+};
+
+// INSPIRATION : https://www.youtube.com/watch?v=bp7REZBV4P4
+
+window.addEventListener( 'load', async _=>{
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Setup
+    App.sphericalLook( 45, 20, 3, [0,0.5,0] );
+    Debug = await useVisualDebug( App );
+
+    Debug.pnt.add( Ref.PA, 0xff0000, 2 );
+    Debug.pnt.add( Ref.PB, 0xffff00, 2 );
+    Debug.pnt.add( Ref.PC, 0x00ffff, 2 );
+    Debug.pnt.add( Ref.PD, 0x00ff00, 2 );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const geo = new THREE.PlaneGeometry( 0.2, 1, 1, 6 );
+    geo.translate( 0.0, 0.5, 0 );
+
+    // const mat  = new THREE.MeshBasicMaterial( {color: 0x00ffff, side: THREE.DoubleSide, wireframe:true } );
+    // const mesh = new THREE.Mesh( geo, mat );
+    // App.scene.add( mesh );
+
+    const wf   = new THREE.WireframeGeometry( geo );
+    const mat  = CustomMaterial();
+    const mesh = new THREE.LineSegments( wf, mat );
+    App.scene.add( mesh );
+
+    Ref.mat = mat;
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // App.renderLoop();
+    App.createRenderLoop( onPreRender ).start();
+});
+
+const PI = Math.PI;
+const P2 = Math.PI * 2.0;
+const PH = Math.PI * 0.5;
+const PQ = Math.PI * 0.25;
+
+function onPreRender( dt, et ){
+    const cycle = ( et / 4 ) * P2;
+
+    const d     = Math.sin( cycle );
+    const d2    = Math.sin( cycle - PQ );
+
+    const c     = Math.sin( cycle + PQ );
+    const b     = Math.sin( cycle - PQ );
+
+    Ref.PD[2] = d * 0.4;        // Alter Top swing
+    Ref.PD[1] = 0.9 - d2 * 0.1;   // Alter Height of curve
+
+    Ref.PC[2] = c * 0.4;
+    Ref.PB[2] = b * 0.2;
+
+    Ref.mat.PD = Ref.PD;
+    Ref.mat.PC = Ref.PC;
+    Ref.mat.PB = Ref.PB;
+    drawPoints();
+}
+
+function drawPoints(){
+    Debug.pnt.reset();
+    Debug.pnt.add( Ref.PA, 0xff0000, 2 );
+    Debug.pnt.add( Ref.PB, 0xffff00, 2 );
+    Debug.pnt.add( Ref.PC, 0x00ffff, 2 );
+    Debug.pnt.add( Ref.PD, 0x00ff00, 2 );
+}
+
+// #endregion
+
+function CustomMaterial(){
+    const mat = new THREE.RawShaderMaterial({
+    depthTest       : true,
+    transparent 	: false, 
+    uniforms        : { 
+        // clock   : { value : 0 },
+        PA      : { value : [0,0,0] },
+        PB      : { value : [0,0.3,0.3] },
+        PC      : { value : [0,0.7,-0.3] },
+        PD      : { value : [0,1,0] },
+    },
+    vertexShader    : `#version 300 es
+    in vec3 position;
+    in vec3 normal;
+    in vec2 uv;
+    
+    uniform mat4 modelMatrix;
+    uniform mat4 viewMatrix;
+    uniform mat4 projectionMatrix;
+    
+    // uniform float clock;
+    uniform vec3  PA;
+    uniform vec3  PB;
+    uniform vec3  PC;
+    uniform vec3  PD;
+
+    out vec3 fragNorm;
+    out vec3 fragWPos;
+
+    /////////////////////////////////////////////////////////////////
+    // #region BEZIER CUBIC
+
+    vec3 bezierCubic( vec3 a , vec3 b, vec3 c, vec3 d, float t ){
+        float i    = 1.0 - t;
+        float ii   = i * i;
+        float iii  = ii * i;
+        float tt   = t * t;
+        float ttt  = tt * t;
+        float iit3 = 3.0 * ii * t;
+        float itt3 = 3.0 * i * tt;
+        return iii * a + iit3 * b + itt3 * c + ttt * d;
+    }
+
+    // #endregion
+
+    /////////////////////////////////////////////////////////////////
+
+    void main(){
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        vec3 pos = position;
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Place verts on curve
+        float t   = pos.y / 1.0;
+        vec3 bPos = bezierCubic( PA, PB, PC, PD, t );
+
+        pos = bPos + vec3( pos.x, 0.0, pos.z );        
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        vec4 wPos   = modelMatrix * vec4( pos, 1.0 );
+        fragWPos    = wPos.xyz;
+        fragNorm    = normal;
+        gl_Position = projectionMatrix * viewMatrix * wPos;
+    }`,
+
+    fragmentShader  : `#version 300 es
+    precision mediump float;
+
+    in vec3 fragNorm;
+    in vec3 fragWPos;
+    // uniform vec3 cameraPosition;
+
+    out vec4    outColor;
+
+    ////////////////////////////////////////////////////////////////////////
+
+    void main(){
+        outColor = vec4( vec3( 0.6 ), 1.0 );
+    }`});
+
+    const copy = ( a, b )=>{
+        b[0] = a[0];
+        b[1] = a[1];
+        b[2] = a[2];
+    }
+
+    // Object.defineProperty( mat, 'clock', { 
+    //     set: v=>{ mat.uniforms.clock.value = v } 
+    // });
+
+    Object.defineProperty( mat, 'PA', { set: v=>copy( v, mat.uniforms.PA.value ) });
+    Object.defineProperty( mat, 'PB', { set: v=>copy( v, mat.uniforms.PB.value ) });
+    Object.defineProperty( mat, 'PC', { set: v=>copy( v, mat.uniforms.PC.value ) });
+    Object.defineProperty( mat, 'PD', { set: v=>copy( v, mat.uniforms.PD.value ) });
+
+    return mat;
+}
+
+
+</script></body></html>
