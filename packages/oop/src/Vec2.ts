@@ -342,6 +342,12 @@ export default class Vec2 extends Array< number >{
 
     static scaleThenAdd( scale: number, a: ConstVec2, b: ConstVec2 ): Vec2{ return new Vec2().scaleThenAdd( scale, a, b ); }
 
+    // function orientation( p1, p2, p3 ){
+    //     const d = ( p3[1] - p2[1] ) * ( p2[0] - p1[0] ) - ( p2[1] - p1[1] ) * ( p3[0] - p2[0] );
+    //     return ( d > 0 )? 1  : 
+    //            ( d < 0 )? -1 : 0
+    // }
+
     // From FROM and TO should have the same Origin.
     // FROM is a straight line from origin to plane. May need to do some extra projection to get this value.
     // To is treated like a Ray from the origin.

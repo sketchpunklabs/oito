@@ -1,0 +1,142 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+//#region IMPORTS
+import useThreeWebGL2, { useDarkScene, useVisualDebug } from '../../_lib/useThreeWebGL2.js';
+
+// import { Polygon2D } from '../../../packages/geo/src/index.ts';
+import { RandomLCG } from '@oito/core';
+import { Vec2 }      from '@oito/oop';
+//#endregion
+
+//#region MAIN
+let App   = useDarkScene( useThreeWebGL2() );
+let Debug = {};
+let Ref   = {};
+
+
+window.addEventListener( 'load', async _=>{
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Setup
+    App.sphericalLook( 0, 20, 6 );
+    Debug = await useVisualDebug( App );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const rnd    = new RandomLCG( 3 );
+    const radius = 2;
+    const pnts   = [];
+    let x, z, v;
+    for( let i=0; i < 20; i++ ){
+        x = rnd.next() * radius;
+        z = rnd.next() * radius;
+        v = new Vec2( x, z );
+
+        pnts.push( v );
+        Debug.pnt.add( v.toVec3(), 0x00ff00, 3 );
+    }
+
+    GrahamScanAlgo( pnts );
+    
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    App.renderLoop();
+    // App.createRenderLoop( onPreRender ).start();
+});
+
+//#endregion
+
+function findBottomLeftMost( pnts ){
+    let iMin = -1;
+    let yMin = Infinity;
+    for( let i=0; i < pnts.length; i++ ){
+        if( pnts[ i ][ 1 ] < yMin ){
+            yMin = pnts[ i ][ 1 ];
+            iMin = i;
+        }else if( pnts[ i ][ 1 ] == yMin && pnts[ i ][ 0 ] < pnts[ iMin ][ 0 ] ){ 
+            iMin = i;
+        }
+    }
+    return iMin;
+}
+
+// https://www.youtube.com/watch?v=SBdWdT_5isI&t=25s
+// https://gist.github.com/syphh/ef081e3f60d1cf70d33a7bf0dc9a07ce
+// function dist(p1, p2){ return Math.sqrt((p2[1]-p1[1])**2 + (p2[0]-p1[0])**2) }
+function lenSqr( a ){ return a[0]**2 + a[1]**2;}
+function distSqr( p1, p2 ){ return ( p2[1] - p1[1] )**2 + ( p2[0] - p1[0] )**2; }
+function orientation( p1, p2, p3 ){
+    // compute the two slopes of the 3 point line then subtract them
+    const d = ( p3[1] - p2[1] ) * ( p2[0] - p1[0] ) - ( p2[1] - p1[1] ) * ( p3[0] - p2[0] );
+    return ( d > 0 )?  1 : 
+           ( d < 0 )? -1 : 0
+}
+
+function polarAngle( p1, p2 ){
+    if( p1[1] == p2[1] ) return -Math.PI;
+    const dy = p1[1]-p2[1];
+    const dx = p1[0]-p2[0];
+    return Math.atan2(dy, dx);
+}
+
+function sortFromPoint( p0 ){
+    return ( a, b )=>{
+        const pa = polarAngle( p0, a );
+        const pb = polarAngle( p0, b );
+
+        if( pa === pb ){
+            const da = distSqr( p0, a );
+            const db = distSqr( p0, b );
+            
+            return ( da === db )? 0 : 
+                   ( da < db )? 1 : -1;
+
+        }else if( pa < pb ) return -1;
+        else                return  1;
+    }
+}
+
+// https://www.youtube.com/watch?v=SBdWdT_5isI
+function GrahamScanAlgo( pnts ){
+    const hull  = [];
+    let i       = findBottomLeftMost( pnts );
+    let p0      = pnts[ i ];
+
+    pnts.sort( sortFromPoint( p0 ) );
+
+    Debug.pnt.add( p0.toVec3(), 0xffffff, 3 );
+    // Debug.pnt.add( pnts[0].toVec3(), 0x0000ff, 3 );
+    // Debug.pnt.add( pnts[1].toVec3(), 0x00ffff, 3 );
+    // Debug.pnt.add( pnts[2].toVec3(), 0xff0000, 3 );
+    // Debug.pnt.add( pnts[3].toVec3(), 0xffff00, 3 );
+    // points.sort(key=lambda p: (polar_angle(p0, p), dist(p0, p)))
+
+
+    for( i=0; i < pnts.length; i++ ){
+
+        while( hull.length >= 2 ){
+            let j = hull.length - 1;
+            // Last 2 points plus new point must be CCW, else
+            // remove from the stack till we have the right winding
+            if( orientation( hull[j-1], hull[j], pnts[i] ) !== 1 ){
+                hull.pop();
+            }else break;
+        }
+
+        hull.push( pnts[i] );
+    }
+
+    // for i in range(len(points)):
+    //     while len(hull) >= 2 and orientation(hull[-2], hull[-1], points[i]) != 1:
+    //         hull.pop()
+    //     hull.append(points[i])
+
+    for( let i=0; i < hull.length; i++ ){
+        let j = ( i+1 ) % hull.length;
+        Debug.ln.add( hull[i].toVec3(), hull[j].toVec3(), 0x00ffff );
+        Debug.pnt.add( hull[i].toVec3(), 0xffff00, 2 );
+    }
+
+    return hull;
+}
+
+
+</script></body></html>

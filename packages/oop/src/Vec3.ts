@@ -592,7 +592,7 @@ export default class Vec3 extends Array< number >{
         return this;
     }
 
-    rotate( rad: number, axis="x" ): this{
+    rotate( rad: number, axis=0 ): this{
         // https://www.siggraph.org/education/materials/HyperGraph/modeling/mod_tran/3drota.htm
         const sin = Math.sin( rad ),
               cos = Math.cos( rad ),
@@ -601,15 +601,15 @@ export default class Vec3 extends Array< number >{
               z   = this[ 2 ];
 
         switch( axis ){
-            case "y": //..........................
+            case 1: //..........................
                 this[ 0 ] = z * sin + x * cos; //x
                 this[ 2 ] = z * cos - x * sin; //z
             break;
-            case "x": //..........................
+            case 0: //..........................
                 this[ 1 ] = y * cos - z * sin; //y
                 this[ 2 ] = y * sin + z * cos; //z
             break;
-            case "z": //..........................
+            case 2: //..........................
                 this[ 0 ] = x * cos - y * sin; //x
                 this[ 1 ] = x * sin + y * cos; //y
             break;

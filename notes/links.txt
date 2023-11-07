@@ -31,3 +31,28 @@ https://github.com/spite/codevember-2022/blob/main/modules/easings.js
 
 // Swizzle Rotations of Quaternions
 https://github.com/FreyaHolmer/Mathfs/blob/446593cea11f7a25b8e73b8398d77f665039bcee/Runtime/Extensions.cs#L159-L177
+
+
+// An accurate way to get an angle between vector3s
+https://github.com/blender/blender/blob/48e60dcbffd86f3778ce75ab67f95461ffbe319c/source/blender/blenlib/intern/math_vector.c#L452
+float angle_normalized_v3v3(const float v1[3], const float v2[3])
+{
+  /* double check they are normalized */
+  BLI_ASSERT_UNIT_V3(v1);
+  BLI_ASSERT_UNIT_V3(v2);
+
+  /* this is the same as acos(dot_v3v3(v1, v2)), but more accurate */
+  if (dot_v3v3(v1, v2) >= 0.0f) {
+    return 2.0f * saasin(len_v3v3(v1, v2) / 2.0f);
+  }
+
+  float v2_n[3];
+  negate_v3_v3(v2_n, v2);
+  return (float)M_PI - 2.0f * saasin(len_v3v3(v1, v2_n) / 2.0f);
+}
+MINLINE float saasin(float fac)
+{
+  if (UNLIKELY(fac <= -1.0f))  return (float)-M_PI_2;
+  else if (UNLIKELY(fac >= 1.0f))  return (float)M_PI_2;
+  else return asinf(fac);
+}

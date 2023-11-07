@@ -17,5 +17,7 @@ export default class Vec3Wizzy{
     static xp_xp( v: ConstVec3, o: TVec3 ): TVec3{ const x = v[0], y = v[1], z = v[2]; o[0] = x; o[1] = -y; o[2] = -z; return o; }     // x-y-z rot x+90, x+90
     
     static yn_yn( v: ConstVec3, o: TVec3 ): TVec3{ const x = v[0], y = v[1], z = v[2]; o[0] = -x; o[1] = y; o[2] = -z; return o; }     // -xy-z rot y-90, y-90
+
+    static zp_zp( v: ConstVec3, o: TVec3 ): TVec3{ const x = v[0], y = v[1], z = v[2]; o[0] = -x; o[1] = -y; o[2] = z; return o; }     // -x,-y,z rot z+180
     // #endregion
 }

@@ -27,7 +27,7 @@ window.addEventListener( 'load', async _=>{
     Debug = await useVisualDebug( App );
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    const rnd    = new RandomLCG();
+    const rnd    = new RandomLCG( 1 );
     const radius = 2;
     const pnts   = [];
     let x, z, v;
@@ -40,7 +40,8 @@ window.addEventListener( 'load', async _=>{
         Debug.pnt.add( v.toVec3(), 0x00ff00, 3 );
     }
 
-    giftWrappingAlgo( pnts );
+    // giftWrappingAlgo( pnts );
+    giftWrappingAlgo2( pnts );
     
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     App.renderLoop();
@@ -131,4 +132,56 @@ algorithm jarvis(S) is
         pointOnHull = endpoint
     until endpoint = P[0]      // wrapped around to first hull point
 */
+
+
+// https://gist.github.com/syphh/3227bd480ee5c63fa3bf401e1bf94acd
+// function dist(p1, p2){ return Math.sqrt((p2[1]-p1[1])**2 + (p2[0]-p1[0])**2) }
+function dist(p1, p2){ return ( p2[1] - p1[1] )**2 + ( p2[0] - p1[0] )**2; }
+function orientation( p1, p2, p3 ){
+    // compute the two slopes of the 3 point line then subtract them
+    const d = ( p3[1] - p2[1] ) * ( p2[0] - p1[0] ) - ( p2[1] - p1[1] ) * ( p3[0] - p2[0] );
+    return ( d > 0 )?  1 : 
+           ( d < 0 )? -1 : 0
+}
+
+// https://www.youtube.com/watch?v=nBvCZi34F_o
+// Jarvis march algorithm
+function giftWrappingAlgo2( pnts ){
+    const hull  = [];
+    let i       = findLeftMost( pnts );
+    let onHull  = pnts[ i ];
+    let nxPnt;
+    let o;
+
+    let j;
+    for( j=0; j < pnts.length; j++ ){ // While( true )
+
+        hull.push( onHull );
+        Debug.pnt.add( onHull.toVec3(), 0xff0000, 3 );
+        nxPnt = pnts[0];
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Search for the best next point
+        for( i=0; i < pnts.length; i++ ){
+            // Line of 3 points, o--o--o, calc orient from onHull to Possible next Point
+            o = orientation( onHull, nxPnt, pnts[i] ); 
+
+            if( nxPnt == onHull 
+                || o == 1      // If is CCW
+                || ( o == 0 && dist( onHull, pnts[i]) > dist(onHull, nxPnt) ) // Better if further away
+            ) nxPnt = pnts[i];
+        }
+        
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        Debug.ln.add( onHull.toVec3(), nxPnt.toVec3(), 0x00ffff );
+
+        onHull = nxPnt;
+        if( onHull == hull[0] ) break;
+    }
+
+    console.log( 'Done', j );
+    return hull;
+}
+
+
 </script></body></html>
