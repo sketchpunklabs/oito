@@ -1,0 +1,69 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+//#region IMPORTS
+// import useThreeWebGL2, { useDarkScene, useVisualDebug } from '../_lib/useThreeWebGL2.js';
+// import facedCube    from '../_lib/meshes/facedCube.js';
+
+// import { Colour } from '../../packages/core/src/index.ts';
+//#endregion
+
+//#region MAIN
+// let App   = useDarkScene( useThreeWebGL2() );
+// let Debug = {};
+// let Ref   = {};
+
+window.addEventListener( 'load', async _=>{
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Setup
+    // App.sphericalLook( 45, 20, 6 );
+    // Debug = await useVisualDebug( App );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    let x = crc32( 'Testing One Two Thref' );
+    console.log( x );
+    
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // App.renderLoop();
+    // App.createRenderLoop( onPreRender ).start();
+});
+
+// function onPreRender( dt, et ){}
+//#endregion
+
+// pipe, compose, memoize, memoization, debounce, throttle
+
+
+export function debounce( fn, delay ){
+    let id = null;
+    return ()=>{ //...args
+        if( id ) clearTimeout( id );
+        id = setTimeout( ()=>fn.apply( null, arguments ), delay ); //id = setTimeout( ()=>fn( ...args ), delay );
+    };
+}
+
+export function memorize( fn ){
+    const cache = {};
+    return ( ...args )=>{
+        const key = args.toString();
+        if( key in cache ) return cache[ key ];
+
+        const result = fn( ...args );
+        cache[ key ] = result;
+        return result;
+    }
+}
+
+export function throttle( fn, delay ){
+    let lastTime = 0;
+    return ( ...args )=>{
+        const now = new Date().getTime();
+        if( now - lastTime < delay ) return;
+        lastTime = now;
+        fn( ...args );
+    }
+}
+
+
+</script></body></html>
