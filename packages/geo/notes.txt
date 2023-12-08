@@ -5,3 +5,8 @@ https://github.com/pmndrs/meshline
 https://mattdesl.svbtle.com/drawing-lines-is-hard
 https://blog.mapbox.com/drawing-antialiased-lines-with-opengl-8766f34192dc
 https://github.com/sketchpunk/temp/blob/master/Fungi_v5_5/_test/shaders/010_lines.html
+
+
+// octahedral mapping
+https://x.com/jakubtomsu_/status/1722691305573110023?s=20
+https://gist.github.com/jakubtomsu/e614bf152a7147c4519149270b9266b6

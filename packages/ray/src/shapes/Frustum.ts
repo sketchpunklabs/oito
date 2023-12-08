@@ -204,6 +204,32 @@ planes[ 2 ].setComponents( me3 + me1, me7 + me5, me11 + me9, me15 + me13 ).norma
 planes[ 3 ].setComponents( me3 - me1, me7 - me5, me11 - me9, me15 - me13 ).normalize();
 planes[ 4 ].setComponents( me3 - me2, me7 - me6, me11 - me10, me15 - me14 ).normalize();
 planes[ 5 ].setComponents( me3 + me2, me7 + me6, me11 + me10, me15 + me14 ).normalize();
+
+////////////////////////////////////////////////////////////////
+// https://github.com/CodyJasonBennett/gpu-culling/blob/main/src/index.js
+projectionViewMatrix: new THREE.Uniform(
+    new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse),
+)
+
+// http://cs.otago.ac.nz/postgrads/alexis/planeExtraction.pdf
+vec4 planes[] = vec4[](
+    projectionViewMatrix[3] - projectionViewMatrix[0], // left   (-w < +x)
+    projectionViewMatrix[3] + projectionViewMatrix[0], // right  (+x < +w)
+    projectionViewMatrix[3] - projectionViewMatrix[1], // bottom (-w < +y)
+    projectionViewMatrix[3] + projectionViewMatrix[1], // top    (+y < +w)
+    projectionViewMatrix[3] - projectionViewMatrix[2], // near   (-w < +z)
+    projectionViewMatrix[3] + projectionViewMatrix[2]  // far    (+z < +w)
+);
+
+// Frustum Culling a position, I guess with a sphere bounding box?
+for (int i = 0; i < 6; i++) {
+    float distance = dot(planes[i], position);
+    if (distance <= -radius) {
+        visibility = 2;
+        break;
+    }
+}
+
 */
 
 class Plane{
