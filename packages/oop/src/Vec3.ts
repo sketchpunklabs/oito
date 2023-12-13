@@ -57,10 +57,16 @@ export default class Vec3 extends Array< number >{
     // #endregion
 
     // #region SETTERS
-    xyz( x:number, y:number, z:number ): this{
-        this[ 0 ] = x;
-        this[ 1 ] = y;
-        this[ 2 ] = z;
+    xyz( x:number, y?:number, z?:number ): this{
+        if( y !== undefined && z !== undefined ){
+            this[ 0 ] = x;
+            this[ 1 ] = y;
+            this[ 2 ] = z;
+        }else{
+            this[ 0 ] = x;
+            this[ 1 ] = x;
+            this[ 2 ] = x;
+        }
         return this;
     }
 
@@ -751,6 +757,24 @@ export default class Vec3 extends Array< number >{
               };
         return { [Symbol.iterator](){ return { next }; } };
     }
+
+    /*
+    function snapPointToPlane( pnt, planePos, planeNorm, out=null ) {
+        // Dot Product between pnt vector & normal
+        const dot = 
+            ( pnt[0] - planePos[0] ) * planeNorm[0] + 
+            ( pnt[1] - planePos[1] ) * planeNorm[1] + 
+            ( pnt[2] - planePos[2] ) * planeNorm[2];
+    
+        // Snap point to plane
+        out    = out || pnt;
+        out[0] = pnt[0] - dot * planeNorm[0];
+        out[1] = pnt[1] - dot * planeNorm[1];
+        out[2] = pnt[2] - dot * planeNorm[2];
+    
+        return out;
+    }
+    */
 
     /*
     static smoothDamp( cur: ConstVec3, tar: ConstVec3, vel: TVec3, dt: number, smoothTime: number = 0.25, maxSpeed: number = Infinity ): TVec3{

@@ -1,0 +1,131 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+//#region IMPORTS
+import useThreeWebGL2, { useDarkScene, useVisualDebug } from '../_lib/useThreeWebGL2.js';
+import { Transform, Vec3 } from '@oito/oop';
+//#endregion
+
+//#region MAIN
+let App   = useDarkScene( useThreeWebGL2() );
+let Debug = {};
+let Ref   = {};
+
+window.addEventListener( 'load', async _=>{
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Setup
+    App.sphericalLook( 0, 20, 6 );
+    Debug = await useVisualDebug( App );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    // test_inverse();
+    // test_heirarchy();
+    test_invert();
+    
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    App.renderLoop();
+    // App.createRenderLoop( onPreRender ).start();
+});
+
+// function onPreRender( dt, et ){}
+//#endregion
+
+function test_inverse(){
+    const p = [1,0,0];
+    const v = [0,0,0];
+    const vi = [0,0,0];
+
+    const t = new Transform();
+    t.scl.xyz( 1.5, 1, 1 );
+    t.pos.xyz( 0, 0.5, 0 );
+    t.rot.rotZ( Math.PI * 0.5 );
+    t.transformVec3( p, v );
+
+    const ti = new Transform().fromInvert( t );
+    // ti.scl.xyz( 1, 1, 1 );
+    // ti.pos.xyz( 0, 0, 0 );
+    // ti.rot.identity();
+    ti.transformVec3Rev( v, vi );
+
+    // vi[0] = v[0] * ti.scl[0];
+    // vi[1] = v[1] * ti.scl[1];
+    // vi[2] = v[2] * ti.scl[2];
+
+    console.log( t );
+    console.log( ti );
+
+    Debug.pnt.add( p, 0x909090, 4 );
+    Debug.pnt.add( v, 0x00ff00, 4 );
+    Debug.pnt.add( vi, 0xff0000, 2 );
+
+    Debug.ln.add( [0,0,0], [0,2,0], 0x909090 );
+    Debug.ln.add( [0,0,0], [0,1,0], 0xffff00 );
+}
+
+function test_heirarchy(){
+    const a = new Transform();
+    a.pos.xyz( 0, 0, 0 );
+    a.rot.rotZ( Math.PI * -0.25 );
+
+    const b = new Transform();
+    b.pos.xyz( 0, 0.3, 0 );
+    b.rot.rotZ( Math.PI * 0.25 );
+    b.scl.xyz( 2.0 );
+
+    const c = new Transform();
+    c.pos.xyz( 0, 0.3, 0 );
+    c.rot.rotZ( Math.PI * 0.25 );
+    c.scl.xyz( 1/2 );
+
+    const d = new Transform();
+    d.pos.xyz( 0, 0.3, 0 );
+
+    const ary = [ a, b, c, d ];
+    const t   = new Transform();
+    const v   = new Vec3();
+
+    for( let i=0; i < ary.length; i++ ){
+        if( i == 0 ) t.copy( ary[i] );
+        else         t.mul( ary[i] );
+
+        Debug.pnt.add( t.pos, 0x00ff00, 4 );
+
+        if( i ) Debug.ln.add( v, t.pos, 0x00ffff );
+        v.copy( t.pos );
+    }
+
+    // PMUL Test, Find Final WS Transform from all Local Space in reverse
+    const rev = new Transform(  );
+
+    for( let i=ary.length-1; i >= 0; i-- ){
+        if( i == ary.length-1 ) rev.copy( ary[i] );
+        // else                    rev.pmul( ary[i] );  // Works
+        else                    rev.fromMul( ary[i], rev ); // Works
+    }
+
+    Debug.pnt.add( rev.pos, 0xff0000, 2 );
+}
+
+function test_invert(){
+    const a = new Transform();
+    a.pos.xyz( 0, 0, 0 );
+    a.scl.xyz( 1.5 );
+    a.rot.rotZ( Math.PI * -0.25 );
+
+    const b = new Transform();
+    b.pos.xyz( 0, 0.3, 0 );
+    b.rot.rotZ( Math.PI * 0.25 );
+    b.scl.xyz( 2.0 );
+
+    const w  = new Transform().fromMul( a, b );
+    const ai = new Transform().fromInvert( a );
+    const c  = new Transform().fromMul( ai, w );
+
+    console.log( ai );
+    console.log( w );
+    console.log( b );
+    console.log( c );
+}
+
+</script></body></html>

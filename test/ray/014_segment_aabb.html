@@ -88,6 +88,9 @@ function segmentAABB( head, tail, min, max ){
     const tNear = Math.max( t1[0], t1[1], t1[2] );
     const tFar  = Math.min( t2[0], t2[1], t2[2] );
 
+    // Extra test where at least 1 side is within 0:1 range
+    // If both are outside then the segment doesn't intersect
+    // In Terms of a ray there is an intersection
     const rngNear = ( tNear >=0 && tNear <= 1 );
     const rngFar  = ( tFar >=0  && tFar <= 1 );
 
@@ -101,5 +104,47 @@ function segmentAABB( head, tail, min, max ){
         dir.clone().scale( tFar ).add( head ),
     ] : null;
 }
+
+
+/*
+int point_aabb( vec3 p, vec3 min, vec3 max ){
+    return (
+        min.x <= p.x && p.x <= max.x &&
+        min.y <= p.y && p.y <= max.y &&
+        min.z <= p.z && p.z <= max.z
+    )? 1 : 0;
+}
+
+int segment_aabb( vec3 head, vec3 tail, vec3 bMin, vec3 bMax ){
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Test if either end is inside the box
+    if( point_aabb( head, bMin, bMax ) == 1 ) return 1;
+    if( point_aabb( tail, bMin, bMax ) == 1 ) return 1;
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    vec3 dir    = tail - head;
+    vec3 tMin   = ( bMin  - head ) / dir;
+    vec3 tMax   = ( bMax  - head ) / dir;
+    
+    vec3 t1     = min( tMin, tMax );
+    vec3 t2     = max( tMin, tMax );
+    float tNear = max( max( t1.x, t1.y ), t1.z );
+    float tFar  = min( min( t2.x, t2.y ), t2.z );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~    
+    if( tNear < tFar ){
+
+        // Extra test where at least 1 side is within 0:1 range
+        // If both are outside then the segment doesn't intersect
+        // In Terms of a ray there is an intersection
+        if( 
+            ( tNear >=0.0 && tNear <= 1.0 ) ||
+            ( tFar  >=0.0 && tFar  <= 1.0 )
+        ) return 1;
+    }
+
+    return 0;
+}
+*/
 
 </script></body></html>
