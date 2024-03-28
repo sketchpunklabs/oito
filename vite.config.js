@@ -25,8 +25,9 @@ export default defineConfig(({ command, mode, ssrBuild }) => {
 
             resolve:{
                 alias:{ 
-                    '@oito/ray': './packages/ray/src/index.ts', 
-                    '@oito/oop': './packages/oop/src/index.ts'
+                    '@oito/ray'     : './packages/ray/src/index.ts', 
+                    '@oito/oop'     : './packages/oop/src/index.ts',
+                    '@oito/curves'  : './packages/curves/src/index.ts'
                 },
             }
         };

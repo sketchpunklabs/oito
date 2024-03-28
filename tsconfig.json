@@ -7,6 +7,7 @@
         { "path": "packages/geo" },
         { "path": "packages/ray" },
         { "path": "packages/halfedge" },
+        { "path": "packages/curves" },
     ],
 
     "compilerOptions": {
@@ -44,7 +45,8 @@
             "@oito/oop"         : [ "./packages/oop" ],
             "@oito/geo"         : [ "./packages/geo" ],
             "@oito/ray"         : [ "./packages/ray" ],
-            "@oito/halfedge"    : [ "./packages/halfedge" ]
+            "@oito/halfedge"    : [ "./packages/halfedge" ],
+            "@oito/curves"      : [ "./packages/curves" ]
         },                                      /* Specify a set of entries that re-map imports to additional lookup locations. */
         
         // "rootDirs": [],                                   /* Allow multiple folders to be treated as one when resolving modules. */
