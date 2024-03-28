@@ -1,3 +1,11 @@
+function objFilterUndefined( obj ){
+  return Object.fromEntries(
+    Object
+		.entries( obj )
+		.filter( ([_k, v]) => v !== undefined )
+  );
+}
+
 https://github.com/mattdesl/canvas-sketch-util/blob/master/random.js#L279
 https://github.com/mattdesl/canvas-sketch-util/blob/master/docs/random.md#weighted
 Weighted Probability

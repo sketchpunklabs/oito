@@ -1,5 +1,7 @@
 import Maths from './Maths';
 
+// TODO: Visit this page, has los of useful fns https://iquilezles.org/articles/functions/
+
 class Gradient{
     // #region STEP
     static step( edge: number, x: number ) : number{ return ( x < edge )? 0 : 1; }

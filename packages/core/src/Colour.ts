@@ -173,6 +173,22 @@ export default class Colour extends Float32Array{
 }
 
 
+/*
+function colorString2Int(hex: string ): number {
+    // Remove '#' if it exists
+    const str = hex.replace('#', '');
+
+    // Parse the hex string to get individual color components
+    const r = parseInt(str.substring(0, 2), 16);
+    const g = parseInt(str.substring(2, 4), 16);
+    const b = parseInt(str.substring(4, 6), 16);
+
+    // Combine all bitwise values
+    // eslint-disable-next-line no-bitwise
+    return (r << 16) | (g << 8) | b;
+}
+*/
+
 /**
  * Convert HSV spectrum to RGB.
  * @param h Hue

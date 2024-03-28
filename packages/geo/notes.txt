@@ -10,3 +10,30 @@ https://github.com/sketchpunk/temp/blob/master/Fungi_v5_5/_test/shaders/010_line
 // octahedral mapping
 https://x.com/jakubtomsu_/status/1722691305573110023?s=20
 https://gist.github.com/jakubtomsu/e614bf152a7147c4519149270b9266b6
+
+
+
+https://github.com/sketchpunk/FunWithWebGL2/blob/de4f8e919056196b422cd6cd406cdd0ccf279f48/lesson_050/fungi/entities/Terrain.js#L66
+/*
+Useful to get vec3 on a quad based on UV, but need to pick the right triange
+and put it in the right order for the math to work.
+ABC Tri1 [0,y,0] [1,y,0] [0,y,1] then UV 0->1, 0->1  :: ORDER (00 10 01)
+or  Tri2 [1,y,0] [1,y,1] [0,y,1] then UV 0->1, 0->1  :: ORDER (10 11 01)
+
+NOTE : A,B,C are vec3 with U,V are floats
+https://gamedev.stackexchange.com/questions/23743/whats-the-most-efficient-way-to-find-barycentric-coordinates */
+function baryCentricLambda(a, b, c, u, v){
+	
+	var invDet	= 1 / ((b.z - c.z) * (a.x - c.x) + (c.x - b.x) * (a.z - c.z)),
+		l1		= ((b.z - c.z) * (u - c.x) + (c.x - b.x) * (v - c.z)) * invDet,
+		l2		= ((c.z - a.z) * (u - c.x) + (a.x - c.x) * (v - c.z)) * invDet,
+		l3		= 1.0 - l1 - l2;
+	
+/*
+	var invDet = 1.0 / ((b.y-c.y) * (a.x-c.x) + (c.x-b.x) * (a.y-c.y)),
+		l1 = ((b.y-c.y) * (u-c.x) + (c.x-b.x) * (v-c.y)) * invDet,
+		l2 = ((c.y-a.y) * (u-c.x) + (a.x-c.x) * (v-c.y)) * invDet, 
+		l3 = 1.0 - l1 - l2;
+*/
+	return [l1,l2,l3];
+}

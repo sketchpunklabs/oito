@@ -1,0 +1,123 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+//#region IMPORTS
+// import { Vec3, Quat }  from '@oito/oop';
+//#endregion
+
+//#region MAIN
+
+
+window.addEventListener( 'load', async _=>{
+  
+    const tags = Tags();
+    
+    // const { div } = tags;
+    const div = tags.div;
+
+    Tags.add( document.body, div( { innerText:'x', align:'right', style:'border:1px solid red; padding:10px;' } ) );
+
+    const fnTest = ()=>{
+        return tags.button( { onclick:()=>console.log('yo') }, 'w00t' );
+    };
+
+    document.body.append(
+        div( 
+            { style:'border:1px solid green;' },
+            tags.button( { innerText:'button' } ),
+            "x", " woot", fnTest,
+        )
+    );
+});
+
+
+//#endregion
+
+const proObject = Object.getPrototypeOf( {} );
+const proFunc   = Object.getPrototypeOf( function x(){} );
+
+function recursivePropDescriptor( obj, key ){
+    return ( obj )
+        ? Object.getOwnPropertyDescriptor( obj, key ) 
+            ?? recursivePropDescriptor( Object.getPrototypeOf( obj ), key )
+        : undefined;
+}
+
+function Tags( ns ){
+    return new Proxy( { cache:{} },{
+        get: ( target, prop, reciever )=>{
+            let itm = target[ prop ];
+            if( !itm ){
+                itm             = { caller:undefined, props:{} };
+                target[ prop ]  = itm;
+                itm.caller      = Elm.bind( undefined, ns, itm.props, prop );
+            }
+            // Cache elm which is bound with the NAME parameter set
+            return itm.caller;
+        },
+    });
+}
+
+Tags.forSVG    = ()=>Tags( 'http://www.w3.org/2000/svg' );
+Tags.forMathML = ()=>Tags( 'http://www.w3.org/1998/Math/MathML' );
+
+Tags.add = ( root, ...elms )=>{
+    let proto;
+    for( let elm of elms.flat( Infinity ) ){
+        
+        proto = Object.getPrototypeOf( elm );
+        if( proto === proFunc ){
+            console.log( 'Ep !!, func proto' );
+            root.append( elm() );
+        }else{
+            root.append( elm ); // Can Append Nodes + String
+        }        
+    }
+
+    return root;
+};
+
+// Render-ish the element
+function Elm( ns, pCache, name, ...args ){
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Create Element
+    const elm   = ( ns )
+        ? document.createElementNS( ns, name ) 
+        : document.createElement( name );
+
+    // Get Element's Prototype for testing
+    const proto = Object.getPrototypeOf( elm );
+
+    // Test if the first argument is a collection of properties
+    const [ props, ...children ] = ( Object.getPrototypeOf( args[0] ?? 0 ) === proObject )
+        ? args              // Yes, split the data
+        : [ {}, ...args ];  // No, set props as empty object
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Set Properties
+    let k;
+    let v;
+    let prop;
+    // let proVal;
+
+    for( [ k, v ] of Object.entries( props ) ){
+        // -------------------------------
+        // Get Property Descriptor, looking for its setter function
+        prop = pCache[ k ] 
+          ?? ( pCache[ k ] = recursivePropDescriptor( elm, k ) );
+
+        // proVal = Object.getPrototypeOf( v );
+        // console.log( name, k, v, proVal === proFunc );
+        // console.log( 'prop', prop );
+        
+        // -------------------------------
+        // Set Value
+        if( prop?.set ) prop.set.call( elm, v );
+        else elm.setAttribute( k, v );
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    return Tags.add( elm, children );
+}
+
+</script></body></html>

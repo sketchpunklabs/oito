@@ -1,0 +1,299 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+//#region IMPORTS
+import useThreeWebGL2, { THREE, useDarkScene, useVisualDebug } from '../../_lib/useThreeWebGL2.js';
+
+import { Polygon2D } from '../../../packages/geo/src/index.ts';
+//#endregion
+
+//#region MAIN
+let App   = useDarkScene( useThreeWebGL2() );
+let Debug = {};
+let Ref   = {};
+
+window.addEventListener( 'load', async _=>{
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Setup
+    App.sphericalLook( 0, 20, 6 );
+    Debug = await useVisualDebug( App );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const pnts = [
+        [-1, 0, -1],
+        [1, 0, -1],
+        [1, 0, 1],
+        [-1, 0, 1],
+    ];
+
+    const pnts2 = [
+        [-3, 0, -1],
+        // [-2, 0, -1.5],
+        [-1, 0, -1],
+        [-1, 0, 1],
+        [-3, 0, 1],
+    ];
+
+    for( let i=0; i < pnts.length; i++ ){
+        let ii = ( i+1 ) % pnts.length;
+        Debug.ln.add( pnts[i], pnts[ii], 0x00ff00 );
+    }
+
+    const mesh = new DynPolygonMesh( new THREE.MeshPhongMaterial( { color: 0x00ffff, side:THREE.DoubleSide } ), pnts );
+    // mesh.fromPointArray( pnts );
+
+    console.log( mesh.geometry );
+    console.log( mesh.material );
+    App.scene.add( mesh );
+
+    setTimeout( ()=>{
+        mesh.fromPointArray( pnts2 );
+
+    }, 1000 );
+    
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    App.renderLoop();
+    // App.createRenderLoop( onPreRender ).start();
+});
+
+//#endregion
+
+//  const indices   = earcut( flat, null, 2 );
+
+function isPoly2DClockwise( pnts ){
+    const end = ( pnts.length / 2 ) - 1;
+    let sum   = 0;
+    let i, ii;
+
+    for (let j = 0; j < end; j++){
+        i   = j * 2;
+        ii  = ( j + 1 ) * 2;
+        // sum += ( pnts[ii][0] - pnts[i][0] ) * ( pnts[ii][1] + pnts[i][1] );
+        // https://www.baeldung.com/cs/list-polygon-points-clockwise#2-area-of-polygon
+        // sum += pnts[i][0] * pnts[ii][1] - pnts[i][1] * pnts[ii][0];
+        sum += pnts[i+0] * pnts[ii+1] - pnts[i+1] * pnts[ii+0]; // For Flat Array
+    }
+
+    // return ( sum < 0 );
+    return ( sum >= 0 );
+}
+
+import earcut from '../../_lib/thirdparty/earcut.js';
+class DynPolygonMesh extends THREE.Mesh{
+    // #region MAIN
+    constructor( mat, pnts ){
+        super( 
+            undefined,
+            mat 
+            || new THREE.MeshPhongMaterial( { color: 0xff0000, side:THREE.DoubleSide } )
+        );
+
+        if( pnts ) this.fromPointArray( pnts );
+    }
+    // #endregion
+
+    fromPointArray( ary ){
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Flatten data
+        const vertices = [];    // Flatten 3D Mesh Data
+        const flat     = [];    // 2D flatten data (XZ) for earcut
+        for( let i of ary ){
+            vertices.push( ...i );
+            flat.push( i[0], i[2] );
+        }
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Compute triangle faces
+        const indices = earcut( flat, null, 2 );
+        if( indices.length == 0 ){
+            console.log( 'Earcut failed creating indices', flat );
+            return;
+        }
+
+        // Reverse Triangles to CCW order, since webgl renders
+        // the front face with CCW winding
+        if( isPoly2DClockwise( flat ) ){
+            let t;
+            for( let i=0; i < indices.length; i+=3 ){
+                t              = indices[ i ];
+                indices[ i ]   = indices[ i+2 ];
+                indices[ i+2 ] = t;
+            }
+        }
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Finalize
+        this._updateGeometry( vertices, indices );
+    }
+
+    _updateGeometry( vertices, indices ){
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Should we build new geometry buffers?
+        const geo   = this.geometry;
+        const bVert = geo.attributes.position;
+        const bIdx  = geo.index;
+
+        if( !bIdx || 
+            !bVert ||
+            indices.length > bIdx.array.length ||
+            vertices.length > bVert.array.length
+        ){
+            console.log( bVert, bIdx );
+            this._rebuildGeometry( vertices, indices );
+            return;
+        }
+        // console.log( bVert.array.length, vertices.length );
+        // console.log( bIdx.array.length, indices.length );
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // No rebuild, Update what we have
+        bVert.array.set( vertices );
+        bVert.count       = vertices.length / 3;
+        bVert.needsUpdate = true;
+
+        bIdx.array.set( indices );
+        bIdx.count       = indices.length;
+        bIdx.needsUpdate = true;
+
+        geo.setDrawRange( 0, bIdx.count );
+        geo.computeBoundingBox();
+        geo.computeBoundingSphere();
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Compute normals
+        geo.computeVertexNormals();
+        const bNorm       = geo.attributes.normal;
+        bNorm.count       = bVert.count;
+        bNorm.needsUpdate = true;
+    }
+
+    _rebuildGeometry( vertices, indices ){
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        if( !( indices instanceof Uint32Array || indices instanceof Uint16Array ) ){
+            indices = new Uint16Array( indices );
+        }
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Create Buffers
+        const bVert    = new THREE.Float32BufferAttribute( vertices, 3 );
+        const bIdx     = new THREE.BufferAttribute( indices, 1 );
+        bVert.setUsage( THREE.DynamicDrawUsage );
+        bIdx.setUsage( THREE.DynamicDrawUsage );
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Build Geometry
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute( 'position', bVert );
+        geo.setIndex( bIdx );
+        
+        geo.setDrawRange( 0, bIdx.count );
+        geo.computeBoundingBox();
+        geo.computeBoundingSphere();
+        geo.computeVertexNormals();
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        if( this.geometry ) this.geometry.dispose();
+        this.geometry = geo;
+    }
+
+    // reset(){
+	// 	this._cnt           = 0;
+	// 	this._verts.length  = 0;
+    //     this._color.length  = 0;
+    //     this._config.length = 0;
+    //     this.geometry.setDrawRange( 0, 0 );
+	// 	return this;
+    // }
+
+    // _updateGeometry(){
+    //     const geo       = this.geometry;
+    //     const bVerts    = geo.attributes.position;
+    //     const bColor    = geo.attributes.color;     //this.geometry.index;
+    //     const bConfig   = geo.attributes.config;
+
+    //     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //     if( this._verts.length  > bVerts.array.length || 
+    //         this._color.length  > bColor.array.length ||
+    //         this._config.length > bConfig.array.length
+    //     ){
+    //         if( this.geometry ) this.geometry.dispose();
+    //         this.geometry   = _newShapePointsMeshGeometry( this._verts, this._color, this._config );
+    //         this._dirty     = false;
+    //         return;
+    //     }
+
+    //     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //     bVerts.array.set( this._verts );
+    //     bVerts.count       = this._verts.length / 3;
+    //     bVerts.needsUpdate = true;
+
+    //     bColor.array.set( this._color );
+    //     bColor.count       = this._color.length / 3;
+    //     bColor.needsUpdate = true;
+
+    //     bConfig.array.set( this._config );
+    //     bConfig.count       = this._config.length / 2;
+    //     bConfig.needsUpdate = true;
+
+    //     geo.setDrawRange( 0, bVerts.count );
+    //     geo.computeBoundingBox();
+    //     geo.computeBoundingSphere();
+        
+    //     this._dirty = false;
+    // }
+
+}
+
+
+function buildGeometry( verts, indices ){
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute( 'position', new THREE.BufferAttribute( verts, 3 ) );
+    geo.attributes.position.setUsage( THREE.DynamicDrawUsage );
+
+    geo.setIndex( new THREE.BufferAttribute( indices, 1 ) );
+    // if( prim.normal )     geo.setAttribute( 'normal', new THREE.BufferAttribute( prim.normal.data, prim.normal.componentLen ) );
+    // if( prim.texcoord_0 ) geo.setAttribute( 'uv', new THREE.BufferAttribute( prim.texcoord_0.data, prim.texcoord_0.componentLen ) );
+
+    // if( useSkin && prim.joints_0 && prim.weights_0 ){
+    //     geo.setAttribute( 'skinWeight', new THREE.BufferAttribute( prim.weights_0.data, prim.weights_0.componentLen ) );
+    //     geo.setAttribute( 'skinIndex',  new THREE.BufferAttribute( prim.joints_0.data,  prim.joints_0.componentLen ) );
+    // }
+
+    if( doCompute ){
+        geo.computeBoundingSphere();
+        geo.computeBoundingBox();
+    }
+
+    return geo;
+}
+
+function updateGeometry( geo, verts, indices ){
+
+}
+
+function _newShapePointsMeshGeometry( aVerts, aIndices, doCompute=true ){
+    //if( !( aVerts instanceof Float32Array) ) aVerts = new Float32Array( aVerts );
+    //if( !( aColor instanceof Float32Array) ) aColor = new Float32Array( aColor );
+
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const bVerts    = new THREE.Float32BufferAttribute( aVerts, 3 );
+    const bColor    = new THREE.Float32BufferAttribute( aColor, 3 );
+    const bConfig   = new THREE.Float32BufferAttribute( aConfig, 2 );
+    bVerts.setUsage(  THREE.DynamicDrawUsage );
+    bColor.setUsage(  THREE.DynamicDrawUsage );
+    bConfig.setUsage( THREE.DynamicDrawUsage );
+
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute( 'position', bVerts );
+    geo.setAttribute( 'color', bColor );
+    geo.setAttribute( 'config', bConfig );
+
+    if( doCompute ){
+        geo.computeBoundingSphere();
+        geo.computeBoundingBox();
+    }
+    return geo;
+}
+
+</script></body></html>

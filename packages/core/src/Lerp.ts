@@ -86,3 +86,61 @@ export default class Lerp{
         return a0*b + a1*m0 + a2*m1 + a3*c;
     }
 }
+
+
+/*
+// https://github.com/blender/blender/blob/main/source/blender/gpu/shaders/material/gpu_shader_material_noise.glsl#L21C1-L25C2
+ Bilinear Interpolation:
+ *
+ * v2          v3
+ *  @ + + + + @       y
+ *  +         +       ^
+ *  +         +       |
+ *  +         +       |
+ *  @ + + + + @       @------> x
+ * v0          v1
+ 
+float bi_mix(float v0, float v1, float v2, float v3, float x, float y)
+{
+  float x1 = 1.0 - x;
+  return (1.0 - y) * (v0 * x1 + v1 * x) + y * (v2 * x1 + v3 * x);
+}
+
+Trilinear Interpolation:
+ *
+ *   v6               v7
+ *     @ + + + + + + @
+ *     +\            +\
+ *     + \           + \
+ *     +  \          +  \
+ *     +   \ v4      +   \ v5
+ *     +    @ + + + +++ + @          z
+ *     +    +        +    +      y   ^
+ *  v2 @ + +++ + + + @ v3 +       \  |
+ *      \   +         \   +        \ |
+ *       \  +          \  +         \|
+ *        \ +           \ +          +---------> x
+ *         \+            \+
+ *          @ + + + + + + @
+ *        v0               v1
+ 
+float tri_mix(float v0,
+              float v1,
+              float v2,
+              float v3,
+              float v4,
+              float v5,
+              float v6,
+              float v7,
+              float x,
+              float y,
+              float z)
+{
+  float x1 = 1.0 - x;
+  float y1 = 1.0 - y;
+  float z1 = 1.0 - z;
+  return z1 * (y1 * (v0 * x1 + v1 * x) + y * (v2 * x1 + v3 * x)) +
+         z * (y1 * (v4 * x1 + v5 * x) + y * (v6 * x1 + v7 * x));
+}
+
+*/
