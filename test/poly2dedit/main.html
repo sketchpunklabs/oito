@@ -1,0 +1,134 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+// #region IMPORTS
+import Editor from './Editor.js';
+// #endregion
+
+//#region MAIN
+
+let editor;
+window.addEventListener( 'load', async _=>{
+    editor = new Editor( 'main' );
+    editor
+        .setViewportSize( 800, 350 )
+        .setContentSize( 800, 350 )
+        .useTest();
+
+    useBtn( 'btnRot', ()=>editor.setContentRotation() );
+    useBtn( 'btnSclP', ()=>editor.zoomStep( 0.1 ) );
+    useBtn( 'btnSclN', ()=>editor.zoomStep( -0.1 ) );
+    useBtn( 'btnEdit', ()=>editor.stateMachine.push( 'editPoints' ) );
+    useBtn( 'btnAdd', ()=>editor.stateMachine.push( 'appendPoint' ) );
+    useBtn( 'btnRm', ()=>editor.removeSelected() );
+});
+
+function useBtn( id, fn ){
+    const elm = document.getElementById( id );
+    elm.addEventListener( 'click', fn );
+}
+//#endregion
+
+</script>
+
+<style>
+    .mainContainer{
+        background-Color: gray;
+        box-sizing: border-box;
+        display: block;
+        margin: 10px;
+
+        overflow: auto;
+        scrollbar-color: #707070 #202020;
+        scrollbar-width: thin;
+    }
+
+    .mainView{
+        box-sizing: border-box;
+        display: block;
+        position: relative;
+        overflow: hidden;
+        width: 100%;
+        height: 100%;
+
+        /* border:1px solid green; */
+    }
+
+    .gridLayer{
+        user-select:none;
+        z-index: 2;
+        position: absolute;
+        top: 0px;
+        right: 0px;
+        left: 0px;
+        bottom: 0px;
+        opacity: 0.1;
+        background-color: #1e1e1e27;
+        background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
+        background-position: -2px -2px, -2px -2px, -1px -1px, -1px -1px;
+    }
+
+    .gridLayer.dark{
+        background-image:
+        linear-gradient(rgba(0,0,0,1) 2px,          transparent 2px),
+        linear-gradient(90deg, rgba(0,0,0,1) 2px,   transparent 2px),
+        linear-gradient(rgba(0,0,0,0.8) 1px,        transparent 1px),
+        linear-gradient(90deg, rgba(0,0,0,0.8) 1px, transparent 1px);
+    }
+
+    .imageLayer{
+        user-select: none;
+        z-index: 1;
+        position: absolute;
+    }
+
+    .svgLayer{
+      user-select: none;
+      z-index: 3;
+      position: absolute;
+      width: 100%;
+      height: 100%;
+    }
+
+    .poly{
+      opacity: 1.0;
+      transition: all 0.3s ease-in-out;
+    }
+  
+    .poly.sel{
+      opacity: 0.5;
+      stroke: white;
+      stroke-width: 1.5px;
+    }
+
+    .pnt{
+        cursor: pointer;
+        fill: white;
+        stroke: white;
+        stroke-width: 8px;
+        transition: 'fill 0.5s ease-in-out';
+    }
+
+    .pnt:hover{
+        fill: cyan;
+        stroke: cyan;
+    }
+
+    .pnt.sel{
+        fill: yellow;
+        stroke: yellow;
+    }
+</style>
+
+<div id="main" class="mainContainer"></div>
+
+<div style="position:fixed; display:flex; flex-direction:column; right:0px; top:0px; gap:4px 0px; margin:10px 10px 0px 0px;">
+    <button id="btnRot">Rotation</button>
+    <button id="btnSclP">Scale Up</button>
+    <button id="btnSclN">Scale Down</button>
+    <button id="btnEdit">Edit</button>
+    <button id="btnAdd">Add</button>
+    <button id="btnRm">Remove</button>
+</div>
+
+</body></html>
