@@ -1,0 +1,46 @@
+function deepCopy(obj, target) {
+  if (typeof obj !== 'object' || obj === null) {
+    return obj;
+  }
+  
+  if (Array.isArray(obj)) {
+    target = target || [];
+    for (let i = 0; i < obj.length; i++) {
+      target[i] = deepCopy(obj[i], target[i]);
+    }
+  } else {
+    target = target || {};
+    for (let key in obj) {
+      target[key] = deepCopy(obj[key], target[key]);
+    }
+  }
+  
+  return target;
+}
+
+// Perform a deep copy of the source obj onto the target object
+function copyState(src: mixed, target: mixed): mixed {
+  // If a value type, just return the source value
+  if (typeof src !== 'object' || src == null) {
+    return src;
+  }
+
+  // If an array, make a copy of each item in the array
+  if (Array.isArray(src)) {
+    // $FlowIgnore(sketchy-null-mixed)
+    const ary: Array<mixed> = target || [];
+    for (let i = 0; i < src.length; i++) {
+      ary[i] = copyState(src[i], ary[i]);
+    }
+    return ary;
+  }
+
+  // ELSE, treat the source as an object
+  // $FlowIgnore(sketchy-null-mixed)
+  const obj: {[string]: mixed} = target || {};
+  for (const key: string in src) {
+    obj[key] = copyState(src[key], obj[key]);
+  }
+
+  return obj;
+}

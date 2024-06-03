@@ -37,3 +37,8 @@ function baryCentricLambda(a, b, c, u, v){
 */
 	return [l1,l2,l3];
 }
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Collection of Parametric surfaces with wireframe mode
+https://x.com/WakanaYK/status/1786062660204999038
+https://codepen.io/wakana-k/full/poBBRmN

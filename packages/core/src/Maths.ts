@@ -71,6 +71,10 @@ export default class Maths{
         return Math.sqrt( a );
     }
 
+    /** x = -1 to 1 
+    https://bmtechjournal.wordpress.com/2020/05/27/super-fast-quadratic-sinusoid-approximation/ */
+    static fakeSin( x:number ){ return -x * Math.abs( x ) + x; }
+
     /* Adapted from GODOT-engine math_funcs.h. */
     static wrap( value: number, min: number, max: number ): number{
         const range = max - min;

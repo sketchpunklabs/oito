@@ -1,0 +1,75 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+//#region IMPORTS
+// import { Vec3, Quat }  from '@oito/oop';
+//#endregion
+
+//#region MAIN
+
+
+window.addEventListener( 'load', async _=>{
+    let count  = signal( 0 );
+
+    // Since it calls count's value, the function passed in
+    // will also become a handler for it plus the signal it returns
+    let double = derived( ()=>{ return count.value * 2 } ); 
+
+    const btn = document.querySelector( 'button' );
+    btn.addEventListener( 'click', ()=> count.value++ );
+
+    effect( ()=>console.log( count.value ) );
+    // effect( ()=>btn.innerText = count.value );
+    effect( ()=>btn.innerText = double.value );
+
+    count.debug( 'Cnt' );
+    double.debug( 'Dbl' );
+});
+
+
+function signal( v=null ){
+    const handlers = new Set();
+    return {
+        get value(){
+            // When a signal value is called, get the function parent
+            // that has called it by checking the reference.
+            // if it exists, use it to attach a handler
+            if( effect.fnRef ) handlers.add( effect.fnRef );
+            return v;
+        },
+        set value( nv ){ 
+            v = nv;
+            for( const fn of handlers ) fn();
+        },
+
+        debug( name='' ){ console.log( 'DSignal', name, handlers ); },
+    };
+}
+
+// Effect is a handler that gets auto assigned by any signal
+// that gets called from within.
+function effect( fn ){
+    effect.fnRef = fn;
+    fn();
+    effect.fnRef = null;
+}
+effect.subRef = null;
+
+// Create a signal from a function
+function derived( fn ){
+    // Create a new signal
+    const sig = signal();            
+
+    // Set its initial value by executing the fn
+    // It also auto assigns the fn as a handler
+    // to the signal as well
+    effect( ()=> sig.value = fn() ); 
+    return sig;
+}
+
+//#endregion
+</script>
+
+<button style="margin:10px;">Test</button>
+
+</body></html>

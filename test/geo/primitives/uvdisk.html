@@ -1,0 +1,188 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+//#region IMPORTS
+import useThreeWebGL2, { THREE, useDarkScene, useVisualDebug } from '../../_lib/useThreeWebGL2.js';
+import Util         from '../../_lib/misc/Util.js';
+
+import { Vec3 }     from '../../../packages/oop/src/index.ts';
+//#endregion
+
+//#region MAIN
+let App   = useDarkScene( useThreeWebGL2() );
+let Debug = {};
+let Ref   = {};
+
+window.addEventListener( 'load', async _=>{
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Setup
+    App.sphericalLook( 0, 40, 4 );
+    Debug = await useVisualDebug( App );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    let oGeo = UVDisk.create();
+    let bGeo = Util.geoBuffer( oGeo );
+    // let mesh = new THREE.Mesh( bGeo, new THREE.MeshBasicMaterial( { color:0xffffff, flatShading:false, wireframe:false } ) ); //  side:THREE.DoubleSide,
+    let mesh = new THREE.Mesh( bGeo, customMaterial() ); //  side:THREE.DoubleSide,
+    mesh.position.y = 0.01;
+
+    App.scene.add( mesh );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const wf    = new THREE.WireframeGeometry( bGeo );
+    const lMesh = new THREE.LineSegments( wf );
+    // lMesh.material.depthTest = false;
+    lMesh.material.opacity      = 0.75;
+    lMesh.material.transparent  = true;
+    lMesh.material.color        = new THREE.Color( 0x0000000 );
+    lMesh.position.y            = 0.02;
+
+    App.scene.add( lMesh );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    App.renderLoop();
+});
+
+
+class UVDisk{
+    static create( _props ){
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Setup
+        const props = Object.assign({
+            oradius : 1,
+            iradius : 0.85,
+        }, _props );
+
+        const rtn = { 
+            indices  : [],
+            texcoord : [],
+            vertices : [],
+        };
+        
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Build Vertices & UV
+        const edges  = 12;
+        const offset = Math.PI * -0.5;
+        let rad, x, y;
+
+        for( let i=0; i < edges; i++ ){
+            rad = Math.PI * 2 * ( i / edges );
+            x   = Math.cos( rad + offset );
+            y   = Math.sin( rad + offset );
+
+            rtn.vertices.push( x * props.oradius, 0, y * props.oradius );
+            rtn.texcoord.push(
+                ( Math.abs( x ) < 0.00001 )? 0 :  x / props.iradius, 
+                ( Math.abs( y ) < 0.00001 )? 0 : -y / props.iradius,
+            );
+        }
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Compute Triangle Indices
+        let j, k, l;
+        // Ring 1
+        for( let i=0; i < edges; i+=2 ){
+            rtn.indices.push( (i+3) % edges, (i+2) % edges, i+1 );
+        }
+
+        // Ring 2
+        for( let i=0; i < edges; i+=4 ){
+            rtn.indices.push( (i+5) % edges, (i+3) % edges, i+1 );
+        }
+
+        // Ring 3
+        for( let i=0; i < edges; i+=8 ){
+            rtn.indices.push( (i+9) % edges, (i+5) % edges, i+1 );
+        }
+
+        return rtn;
+    }
+}
+
+function customMaterial( tex ){
+    // #region PROPS
+    // props = Object.assign( {
+        // baseColor : 0x00ffff,
+        // tex       : null,
+    // }, props );
+    // #endregion
+
+    const mat = new THREE.RawShaderMaterial({
+        depthTest       : true,
+        side            : THREE.DoubleSide,
+        transparent     : true, 
+        // forceSinglePass : true,             
+        // alphaToCoverage : true,             
+        // lights          : true,
+
+        uniforms        : {
+            // baseColor : { type :'vec3', value: new THREE.Color( props.baseColor ) },
+            // tex     : { type :'sampler2D', value: tex },
+            // xRot    : { type :'float', value: 0.0 },
+        },
+
+        extensions      : { derivatives : true },
+        vertexShader    : `#version 300 es
+        in	vec3    position;
+        in  vec3    normal;
+        in	vec2    uv;
+        
+        uniform     mat4    modelMatrix;
+        uniform     mat4    viewMatrix;
+        uniform     mat4    projectionMatrix;
+
+        out vec3    fragWPos;  // World Space Position
+        out vec3    fragLPos;  // World Space Position
+        out vec3    fragNorm;
+        out vec2    fragUV;
+        
+        // ################################################################
+
+        void main(){
+            // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            vec3 pos = position;
+            
+            // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            vec4 wPos 	        = modelMatrix * vec4( pos, 1.0 );  // World Space
+            vec4 vPos           = viewMatrix * wPos;               // View Space
+            
+            fragUV              = uv;
+            fragWPos            = wPos.xyz;
+            fragLPos            = position;
+            fragNorm            = ( modelMatrix * vec4( normal, 0.0 ) ).xyz;
+
+            gl_Position			= projectionMatrix * vPos;
+        }`,
+
+        fragmentShader  : `#version 300 es
+        precision mediump float;
+
+        in  vec3    fragWPos;
+        in  vec3    fragLPos;
+        in  vec3    fragNorm;
+        in  vec2    fragUV;
+        out vec4    outColor;
+
+        // uniform sampler2D tex;
+        // uniform float xRot;
+
+        void main(){
+            // outColor = vec4( 0.0, 0.0, 0.0, 1.0 );
+
+            // View UV Colors
+            outColor     = vec4( fragUV, 0.0, 1.0 );
+
+            // Draw 1 radius circle
+            float mask   = step( 1.0, length( fragUV ) );
+            outColor.rgb = vec3( mix( 0.4, 0.6, mask ) ); // GrayScale
+        }`
+    });
+
+    // Object.defineProperty( mat, 'baseColor', { set: ( v )=>{ mat.uniforms.baseColor.value.set( v ); } });
+    // Object.defineProperty( mat, 'zRot', { set: ( v )=>{ mat.uniforms.zRot.value = v; } });
+
+    return mat;
+}
+
+// #endregion
+</script></body></html>

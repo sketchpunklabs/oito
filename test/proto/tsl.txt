@@ -1,0 +1,78 @@
+https://github.com/mrdoob/three.js/wiki/Three.js-Shading-Language
+
+Basic example of a node with two nodes as input
+https://github.com/mrdoob/three.js/pull/20421/files/f738e6a89f809a94e78b1ea178e81cc7e1bbfafe#diff-6a4f984e0f2c246e115bc6f09efd7707764c4de431b220fa0f6bbefc68edabf3
+---
+color = new OperatorNode( '+', 
+    new Vector3Node( new THREE.Vector3( 0, .6, 0 ) ), 
+    new Vector3Node( new THREE.Vector3( 0, 0, 1 ) )
+);
+
+---
+const nodeBuilder = new WebGPUNodeBuilder();
+nodeBuilder.setMaterial( material );
+shader = nodeBuilder.parse( shader.vertexShader, shader.fragmentShader );
+
+parse checks material.color.isNode
+then this.addSlot( 'fragment', new NodeSlot( material.color, 'COLOR', 'v3' ) );
+
+Then moves onto 
+fragmentShader = this.buildShader( 'fragment', fragmentShader );
+which then calls this.build( shader ) // shader == 'fragment'
+the build is not part of webGPU builder but inherited from nodebuilder
+
+---
+nodeBuilder.build( 'fragment' );
+Grabs the slots for fragment
+loops then calls this.flowData( slot.node );
+
+flowNode then does
+return { result: node.build( builderRef ) };
+which is the main excutor for a node
+
+---
+node.build calls this.generate( builderRef )
+
+OperatorNode
+calls the .build for A & B objects & saves its results.
+then returns with 
+builder.format( '('+a+' '+this.op+' '+b+')', nodeType, output );
+which tries to do automatic data conversion.
+
+Vector3Node which is A & B
+calls generate which just does
+builder.generateVec3( this.value.x, this.value.y, this.value.z );
+which returns return `vec3( ${x}, ${y}, ${z} )`;
+
+-----
+https://github.com/mrdoob/three.js/pull/22603
+NOTE: Look Deeper
+
+const CheckerNode = new ShaderNode( ( uv ) => {
+	uv = mul( uv, 2.0 );
+	const cx = floor( uv.x );
+	const cy = floor( uv.y );
+	const result = mod( add( cx, cy ), 2.0 );
+	return sign( result );
+} );
+
+const material = new Nodes.MeshStandardNodeMaterial();
+material.colorNode = CheckerNode( new Nodes.UVNode() );
+
+TO
+
+fn checker( inputUV:vec2<f32> ) -> f32 {
+	var uv = inputUV * 2.0;
+	var cx = floor( uv.x );
+	var cy = floor( uv.y );
+	var result = f32( i32( cx + cy ) % i32( 2.0 ) );
+	return sign( result );
+}
+
+color = vec4<f32>( checker( uv ) );
+
+
+-----
+https://github.com/mrdoob/three.js/pull/26911
+NOTE: How tslFN & stack works
+Once the stack concept was defined, we found a way to use it as a global reference to tslFn without losing the reference in which it was defined and being used. tslFn became a controlled environment.

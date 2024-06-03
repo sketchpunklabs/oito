@@ -51,6 +51,24 @@ https://mastodon.gamedev.place/@lisyarus/111064588454272796
 
 // ############################################################
 
+Equidistant-spherical projection // Perspective
+https://x.com/ENDESGA/status/1785961157293191585
+
+vec3 perspective( vec3 point, float fov, float near, float far ){
+  float d = 1.f / ( near - far );
+  float r = atan( length(point.xy), -point.z ) / ( fov * 0.5 );
+  float phi = atan( point.y, poiny.x );
+  return vec3(
+    r * cos( phi ),
+    r * sin( phi ),
+    ( point.z * ( near + far ) * d +
+    (2.0 * near * far * d )) / -point.z
+  );
+}
+
+
+// ############################################################
+
 ZOOMING
 https://x.com/XorDev/status/1703873385946607924?s=20
 
