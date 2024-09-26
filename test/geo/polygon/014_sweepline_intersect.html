@@ -1,0 +1,401 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+//#region IMPORTS
+import useThreeWebGL2, { useDarkScene, useVisualDebug } from '../../_lib/useThreeWebGL2.js';
+import RandomLCG from '../../../packages/core/src/RandomLCG.ts';
+//#endregion
+
+//#region MAIN
+let App   = useDarkScene( useThreeWebGL2() );
+let Debug = {};
+let Ref   = {};
+
+window.addEventListener( 'load', async _=>{
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Setup
+    App.sphericalLook( 0, 90, 6 );
+    Debug = await useVisualDebug( App );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
+    const lines = randomLines( 6, 3 ); // 3, 8844, 777
+
+    Ref.sweep = new SweepIntersect( lines );
+    Ref.sweep.step();
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // DEBUGGING
+
+    /*
+    const a = new Line( [0.3432661611586809, 1.800917960703373], [1.2299251910299063, 1.7189688049256802], 0 );
+    const b = new Line( [0.11096654832363129, 0.466301579028368], [0.8435767143964767, 0.291644548997283], 1 );
+
+    a.debug();
+    b.debug();
+
+    const c = lineIntersectPoint( a, b );
+    if( c ) Debug.pnt.add( [c[0],0,c[1]], 0x00ff00 );
+    console.log( 'Hit', c );
+    */
+
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    App.renderLoop();
+    // App.createRenderLoop( onPreRender ).start();
+    initUI();
+});
+
+//#endregion
+
+// #region SETUP
+function randomLines( cnt=4, seed=0 ){
+    const xMin = -2
+    const xMax = 2;
+    const yMin = -2;
+    const yMax = 2;
+    const r    = [ xMin, xMax, yMin, yMax ];
+
+    const rng   = new RandomLCG( seed );
+    const lines = [];
+    let ii, t, ti, v;
+    
+    for( let i=0; i < cnt; i++ ){
+        let a = [];
+        let b = [];
+
+        for( let j=0; j < 4; j++ ){
+            ii = ( j % 2 ) * 2; // 0 > 2 > 0 > 2
+            t  = rng.next();
+            v  = (1-t) * r[ ii ] + t * r[ ii+1 ];
+
+            if( j < 2 ) a.push( v );
+            else        b.push( v );
+        }
+
+        lines.push( a, b );
+    }
+
+    return lines;
+}
+
+function initUI(){
+    document.getElementById( 'btnNext' ).addEventListener( 'click', ()=>Ref.sweep.step() );
+
+    document.getElementById( 'btnReseed' ).addEventListener( 'click', ()=>{
+        const seed  = Math.floor( Math.random() * 10000 );
+        console.log( 'SEED', seed );
+
+        const lines = randomLines( 6, seed );
+        Ref.sweep.setLines( lines ).step();
+    });
+}
+// #endregion
+
+// https://www.youtube.com/watch?v=qkhUNzCGDt0
+// https://www.geeksforgeeks.org/given-a-set-of-line-segments-find-if-any-two-segments-intersect/
+class SweepIntersect{
+    // #region MAIN
+    points = [];    // Collection of points to sweep across
+    active = [];    // Lines that the sweep line is currently intersecting
+    hits   = [];    // All the intersection points
+    tested = {};    // Keep track of line pairs that have been tested, make sure no repeat testing
+    lines  = null;  // Original passed in data of lines, saved for rerendering
+
+    constructor( lines ){
+        if( lines ) this.setLines( lines );
+    }
+
+    setLines( lines ){
+        // Reset bits of data
+        this.points.length = 0;
+        this.active.length = 0;
+        this.hits.length   = 0;
+        this.lines         = lines;
+        this.tested        = {};
+        
+        // Create data objects for lines & points
+        let lnIdx = 0;
+        for( let i=0; i < lines.length; i+=2 ){
+            const l = new Line( lines[ i ], lines[ i+1 ], lnIdx++ );
+            this.points.push( l.head, l.tail );
+        }
+
+        // Sort points by X in reverse, so the lowest ones can be accessed by using .pop()
+        this.points.sort( (a,b)=> ( a.pos[0] === b.pos[0] )? 0 : ( a.pos[0] < b.pos[0] )? 1 : -1 );
+
+        return this;
+    }
+    // #endregion
+
+    // #region ALGORITHM
+    step(){
+        if( this.points.length === 0 ) return false;
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        const pnt = this.points.pop();
+        let isHit = null;
+        
+        if( pnt.isLeft ){
+            // New Active Line
+            this.addActive( pnt.line );
+            isHit = this.neighborTest( pnt.line );
+        }else{
+            // Deactivate Line
+            this.rmActive( pnt.line );
+            isHit = this.finalTest( pnt.line );
+        }
+
+        if( isHit && isHit.length > 0 ) this.hits.push( ...isHit );
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Render results
+        Debug.reset();
+        
+        this.renderLines()
+            .renderActive()
+            .renderSweep( pnt.pos )
+            .renderHits();
+
+        return true;
+    }
+
+    // Only test the upper and lower edges in relation to the Y Axis
+    neighborTest( line ){
+        if( this.active.length < 2 ) return [];
+
+        const hits = [];
+        const i    = this.active.indexOf( line );
+        let hit    = null;
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Test upper line if available
+        if( i > 0 
+            && ( hit = this.testLines( line, this.active[ i-1 ] ) ) ) 
+                hits.push( hit );
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Test lower line if available
+        if( i < this.active.length - 1 
+            && ( hit = this.testLines( line, this.active[ i+1 ] ) ) ) 
+                hits.push( hit );
+
+        return hits;
+    }
+    
+    // Test line with any currently available non-tested active lines
+    finalTest( line ){
+        const hits = [];
+        let hit    = null;
+
+        for( const a of this.active ){
+            if( ( hit = this.testLines( line, a ) ) ) hits.push( hit );
+        }
+
+        return hits;
+    }
+
+    // Intersect check two lines if they haven't been tested before
+    testLines( a, b ){
+        const key = ( a.index < b.index )? `${a.index}_${b.index}` : `${b.index}_${a.index}`; //Math.min( a.index, b.index ) + '_' + Math.max( a.index, b.index );
+        if( !this.tested[ key ] ){
+            this.tested[ key ] = true;
+            return lineIntersectPoint( a, b );
+        }
+        return null;
+    }
+    // #endregion
+
+    // #region HANDLE ACTIVE LINES
+    addActive( ln ){
+        this.active.push( ln );
+        this.active.sort( this.sortY );
+        return this;
+    }
+
+    rmActive( ln ){
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        const i = this.active.indexOf( ln );
+        if( i === -1 ) return;
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        if( this.active.length > 1 ){
+            // Replace delete element with last element
+            // then resize the array down.
+            const ii = this.active.length - 1;
+            this.active[ i ]   = this.active[ ii ];
+            this.active.length = ii;
+        }else{
+            this.active.length = 0;
+        }
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        if( this.active.length > 0 ) this.active.sort( this.sortY );
+    }
+    
+    sortY( a, b ){
+        return  ( a.head.pos[1] === b.head.pos[1] )? 0 :
+                ( a.head.pos[1] < b.head.pos[1] )? -1 : 1;
+    }
+    // #endregion
+
+    // #region RENDERING DATA
+    renderActive(){
+        for( const ln of this.active ){
+            const a = ln.head.pos;
+            const b = ln.tail.pos;
+            Debug.ln.add( [a[0],0,a[1]], [b[0],0,b[1]], 0xffff00 );
+        }
+        return this;
+    }
+
+    renderSweep( p ){
+        Debug.pnt.add( [p[0],0,p[1]], 0x00ffff, 3, 1 );
+        Debug.ln.add( [p[0],0,-3], [p[0],0,3], 0x00ffff );
+        return this;
+    }
+    
+    renderHits(){
+        for( const p of this.hits ){
+            Debug.pnt.add( [p[0],0,p[1]], 0x00ff00, 3, 0 );
+        }
+        return this;
+    }
+
+    renderLines(){
+        for( let i=0; i < this.lines.length; i+=2 ){
+            let a = this.lines[ i ];
+            let b = this.lines[ i+1 ];
+            Debug.ln.add( [a[0],0,a[1]], [b[0],0,b[1]], 0x808080 );
+        }
+        return this;
+    }
+    // #endregion
+}
+
+class Line{
+    constructor( a, b, idx ){
+        const isALeft = ( a[0] < b[0] );
+        this.index    = idx;
+
+        // Using blender's idea for bones to easily track which point
+        // is considered the first point. The head will always be the
+        // left most point
+        this.head   = new Point( (isALeft)?  a : b, this, true );    // Left most
+        this.tail   = new Point( (!isALeft)? a : b, this, false );   // Right most
+    }
+
+    debug( color=0x00ff00 ){
+        const a = this.head.pos;
+        const b = this.tail.pos;
+        Debug.ln.add( [a[0],0,a[1]], [b[0],0,b[1]], color );
+    }
+}
+
+class Point{
+    constructor( pos, line, isLeft ){
+        this.pos    = pos;      // Position of the point
+        this.line   = line;     // Reference to line this point belongs too
+        this.isLeft = isLeft;   // Just a quick data ref to tell if its the head of th eline
+    }
+}
+
+// Return intersection position of two lines
+function lineIntersectPoint( l1, l2 ){
+    const x1 = l1.head.pos[0];
+    const y1 = l1.head.pos[1];
+    const x2 = l1.tail.pos[0];
+    const y2 = l1.tail.pos[1];
+    const x3 = l2.head.pos[0];
+    const y3 = l2.head.pos[1];
+    const x4 = l2.tail.pos[0];
+    const y4 = l2.tail.pos[1];
+
+    const denom = ((y4 - y3) * (x2 - x1)) - ((x4 - x3) * (y2 - y1));
+    const numeA = ((x4 - x3) * (y1 - y3)) - ((y4 - y3) * (x1 - x3));
+    const numeB = ((x2 - x1) * (y1 - y3)) - ((y2 - y1) * (x1 - x3));
+
+    if( denom === 0 && numeA === 0 && numeB === 0 ) return null;
+
+    const uA = numeA / denom;
+    const uB = numeB / denom;
+    return ( uA >= 0 && uA <= 1 && uB >= 0 && uB <= 1 )
+        ? [ x1 + ( uA * ( x2 - x1 ) ),
+            y1 + ( uA * ( y2 - y1 ) ) ] 
+        : null;
+}
+
+
+// #region NOT NEEDED, KEEP ANYWAY
+
+// https://www.geeksforgeeks.org/check-if-two-given-line-segments-intersect/
+function lineIntersect( l1, l2 ){
+    const p1 = l1.head.pos;
+    const q1 = l1.tail.pos;
+    const p2 = l2.head.pos;
+    const q2 = l2.tail.pos;
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Four orientations needed for general and special cases 
+    const o1 = lineOrientation( p1, q1, p2 ); 
+    const o2 = lineOrientation( p1, q1, q2 ); 
+    const o3 = lineOrientation( p2, q2, p1 ); 
+    const o4 = lineOrientation( p2, q2, q1 );
+
+    console.log( 'lineOrientation', o1, o2, o3, o4 );
+    // console.log( l1, l2 );
+
+    // General case 
+    if( o1 !== o2 && o3 !== o4 ) return true; 
+    
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // SPECIAL CASES
+
+    // If any 3 point line is collinear, swop the points around
+    // to test if the 2nd point exists between 1st & 3rd
+
+    // p1, q1 and p2 are collinear and p2 is on line p1q1 
+    if( o1 == 0 && pointOnLine( p1, p2, q1 ) ) return true; 
+    
+    //p1, q1 and q2 are collinear and q2 is on line p1q1 
+    if( o2 == 0 && pointOnLine( p1, q2, q1 ) ) return true; 
+    
+    // p2, q2 and p1 are collinear and p1 is on line p2q2 
+    if( o3 == 0 && pointOnLine( p2, p1, q2 ) ) return true; 
+    
+    // p2, q2 and q1 are collinear and q1 is on line p2q2 
+    if( o4 == 0 && pointOnLine( p2, q1, q2 ) ) return true; 
+    
+    return false;
+
+}
+
+// https://www.geeksforgeeks.org/orientation-3-ordered-points/
+// Is it Clockwise : 1, CounterClockWise : 2, Collinear : 0
+function lineOrientation( a, b, c ){
+    const v = ( b[1] - a[1] ) * ( c[0] - b[0] ) - 
+              ( b[0] - a[0] ) * ( c[1] - b[1] ); 
+
+    return ( v === 0 )? 0 :     // Collinear
+           ( v > 0 )  ? 1 : 2;  // clock or counterclock wise 
+}
+
+function pointOnLine( a, b, c ){ 
+    return ( b[0] <= Math.max( a[0], c[0] ) && b[0] >= Math.min( a[0], c[0] ) && 
+             b[1] <= Math.max( a[1], c[1] ) && b[1] >= Math.min( a[1], c[1] ) );
+}
+
+// #endregion
+
+</script>
+
+<style>
+    .container{ position:absolute; top:10px; left:50%; transform:translate( -50%, 0 ); }
+</style>
+
+<div class="container">
+    <button id="btnNext">Next Step</button>
+    <button id="btnReseed">Reseed</button>
+</div>
+
+</body></html>

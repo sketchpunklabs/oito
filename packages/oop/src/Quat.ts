@@ -1306,6 +1306,41 @@ public static Vector3 DerivToAngVel(Quaternion Current, Quaternion Deriv) {
     return new Vector3(2f * Result.x, 2f * Result.y, 2f * Result.z);
 }
 
+  /// <summary>Halves the angle of the quaternion</summary>
+  public static Quaternion Sqrt(this Quaternion q) {
+    float d = 1.0f + q.w;
+    float s = 1f/Mathf.Sqrt(d + d);
+    return new Quaternion(q.x * s, q.y * s, q.z * s, d * s);
+  }
+
+  ///Sets this quaternion to this^n (for a rotation quaternion, 
+  ///this is equivalent to rotating this by itself n times).
+  ///This should only work for unit quaternions.
+  ///</summary>
+  public static Quaternion Pow(this Quaternion q, float n) {
+    return q.Ln().Scale(n).Exp();
+  }
+  public static Quaternion Exp(this Quaternion q) {
+    float r = Mathf.Sqrt(q.x * q.x + q.y * q.y + q.z * q.z);
+    float et = Mathf.Exp(q.w);
+    float s = r >= 0.00001f ? et * Mathf.Sin(r) / r : 0f;
+    return new Quaternion(q.x * s, q.y * s, q.z * s, et * Mathf.Cos(r));
+  }
+
+
+  public static Quaternion Ln(this Quaternion q) {
+    float r = Mathf.Sqrt(q.x * q.x + q.y * q.y + q.z * q.z);
+    float t = r > 0.00001f ? Mathf.Atan2(r, q.w) / r : 0f;
+    return new Quaternion(q.x * t, q.y * t, q.z * t,
+                          0.5f * Mathf.Log(q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z));
+  }
+
+  public static Quaternion Scale(this Quaternion q, float scale) {
+    return new Quaternion(q.x * scale, q.y * scale, q.z * scale, q.w * scale);
+  }
+
+
+
 public const float SQRT2 = 1.41421356237f;
 
 // https://github.com/FreyaHolmer/Mathfs/blob/700e27cd9454143f3024fccacf1d47a02f1540d0/Runtime/Extensions.cs#L225-L279

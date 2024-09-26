@@ -4,10 +4,13 @@ import StateMachine     from './StateMachine.js';
 import LayerGrid        from './LayerGrid.js';
 import LayerImage       from './LayerImage.js';
 import LayerSvg         from './LayerSvg.js';
+import LayerPixel       from './LayerPixelDraw.js';
 
 import OpManagePoly     from './OpManagePoly.js';
 import OpEditPoints     from './OpEditPoints.js';
 import OpAppendPoint    from './OpAppendPoint.js';
+import OpPaintBrush     from './OpPaintBrush.js';
+import OpPaintPoly      from './OpPaintPoly.js';
 
 import SVGPolygon       from './SVGPolygon.js';
 import PointPool        from './PointPool.js';
@@ -30,8 +33,16 @@ export default class Editor{
         img     : new LayerImage( this ),
         grid    : new LayerGrid( this ),
         svg     : new LayerSvg( this ),
+        pixel   : new LayerPixel( this ),
     };
-    
+
+    painting = {
+        color   : '#000000',
+        brush   : 'circle',
+        size    : 10,
+        isErase : false,
+    };
+
     // pointPool;
     stateMachine = new StateMachine();
 
@@ -43,17 +54,22 @@ export default class Editor{
         this.elmView.style.transformOrigin = 'top left';
 
         this.stateMachine.reg(
-            new OpManagePoly(this),
-            new OpEditPoints(this),
-            new OpAppendPoint(this),
+            new OpManagePoly( this ),
+            new OpEditPoints( this ),
+            new OpAppendPoint( this ),
+            new OpPaintBrush( this ),
+            new OpPaintPoly( this ),
         );
 
-        this.stateMachine.push( 'managePolygon' );
+        // this.stateMachine.push( 'managePolygon' );
+        this.stateMachine.push( 'paintBrush' );
+        // this.stateMachine.push( 'paintPoly' );
 
         const svgLayer = this.layers.svg;
         svgLayer.on( 'pointerdown', this.onPointerDown );
         svgLayer.on( 'pointerup',   this.onPointerUp );
         svgLayer.on( 'pointermove', this.onPointerMove );
+        svgLayer.on( 'pointerleave', this.onPointerLeave );
         svgLayer.on( 'dblclick',    this.onDBLClick );
     
         // Layout default SVG Elements
@@ -252,6 +268,11 @@ export default class Editor{
 
         this.stateMachine.push('appendPoint', this);
     }
+
+    setCursor( s='default' ){
+        this.layers.svg.elmContainer.style.cursor = s;
+        return this;
+    }
     // #endregion
 
     // #region SVG LAYER EVENTS
@@ -291,6 +312,11 @@ export default class Editor{
         const coord = this.transformCoordinates(e.layerX, e.layerY);
         const sm = this.stateMachine.getCurrent();
         if (sm) sm.onPointerMove(coord[0], coord[1], e);
+    };
+
+    onPointerLeave = (e) =>{
+        const sm = this.stateMachine.getCurrent();
+        if( sm?.onPointerLeave ) sm.onPointerLeave( e );
     };
 
     onDBLClick = (e) => {

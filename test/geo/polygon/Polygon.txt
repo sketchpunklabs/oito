@@ -22,6 +22,9 @@ https://twitter.com/KennyPirman/status/1643926705659150338?s=20
 It chops polygons recursively from the longest edge, at a random position along that edge,
 with a random angle (modulated by parameters), not sure what makes a bisection regular
 
+Compute Convex and Concaved Hull of a 2D points
+https://github.com/AndriiHeonia/hull/tree/master
+
 export function isPolygonClockwise(polygon: Polygon): boolean
 {
     const points = polygon.points;
@@ -34,6 +37,40 @@ export function isPolygonClockwise(polygon: Polygon): boolean
     }
 
     return sum > 0;
+}
+
+
+function isPolyClockwise( pnts, useZ=false ){
+    const end = pnts.length-1;
+    const iy  = useZ? 2 : 1;
+    let sum   = 0;
+    let i, ii;
+
+    for (let i = 0; i < end; i++ ){
+        ii = i + 1;
+        // sum += ( pnts[ii][0] - pnts[i][0] ) * ( pnts[ii][1] + pnts[i][1] );
+        // https://www.baeldung.com/cs/list-polygon-points-clockwise#2-area-of-polygon
+        sum += pnts[i][0] * pnts[ii][iy] - pnts[i][iy] * pnts[ii][0];
+        // sum += pnts[i+0] * pnts[ii+1] - pnts[i+1] * pnts[ii+0]; // For Flat Array
+    }
+
+    // return ( sum < 0 );
+    return ( sum >= 0 );
+}
+
+function isClockwise(polygon, useZ=false ) {
+    let sum = 0;
+    const iy = useZ? 2 : 1;
+    const numPoints = polygon.length;
+
+    for (let i = 0; i < numPoints; i++) {
+        const current = polygon[i];
+        const next = polygon[(i + 1) % numPoints];
+        sum += (next[0] - current[0]) * (next[iy] + current[iy]);
+    }
+
+    // return sum > 0; // Clockwise if sum is positive
+    return sum < 0; // Because of WebGL XZ plane, seems like its reversed
 }
 
 
@@ -51,6 +88,23 @@ for( let i=0; i < len; i++ ){
     n[2] += ( a[0] - b[0] ) * ( a[1] + b[1] );
 }
 n.norm();
+
+
+/** Snap a point onto a plane */
+function snapPointToPlane( pnt, planePos, planeNorm, out = null ){
+  // Dot Product between pnt vector & normal
+  const dot =
+    (pnt[0] - planePos[0]) * planeNorm[0] +
+    (pnt[1] - planePos[1]) * planeNorm[1] +
+    (pnt[2] - planePos[2]) * planeNorm[2];
+
+  // Snap point to plane
+  const rtn = out || pnt;
+  rtn[0] = pnt[0] - dot * planeNorm[0];
+  rtn[1] = pnt[1] - dot * planeNorm[1];
+  rtn[2] = pnt[2] - dot * planeNorm[2];
+  return rtn;
+}
 
 
 getCentroid(){

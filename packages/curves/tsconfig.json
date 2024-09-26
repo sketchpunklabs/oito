@@ -10,6 +10,6 @@
   },
 
   "references": [
-    { "path": "../curves" }
+    { "path": "../oop" }
   ],
 }

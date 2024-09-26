@@ -54,6 +54,11 @@ export default class Vec3 extends Array< number >{
         if( this[ 1 ] > this[ 2 ] ) return 1;
         return 2;
     }
+
+    isFinite(): boolean{
+        return ( Number.isFinite( this[0] ) && Number.isFinite( this[1] ) && Number.isFinite( this[2] ) );
+    }
+
     // #endregion
 
     // #region SETTERS
@@ -259,6 +264,22 @@ export default class Vec3 extends Array< number >{
         return this.fromCross( ab, ac ).norm();
     }
 
+    // function triNorm( a, b, c ){
+    //     // AB = B - A, AC = C - A
+    //     const ax = b[0] - a[0], ay = b[1] - a[1], az = b[2] - a[2],
+    //           bx = c[0] - a[0], by = c[1] - a[1], bz = c[2] - a[2];
+    //     // Cross Product
+    //     let x = ay * bz - az * by;
+    //     let y = az * bx - ax * bz;
+    //     let z = ax * by - ay * bx;
+    //     // Normalizing
+    //     const mag = Math.sqrt( x**2 + y**2 + z**2 );
+    //     x /= mag;
+    //     y /= mag;
+    //     z /= mag;
+    //     return [ x, y, z ];
+    // }
+
     fromAxisAngle( axis: TVec3, rad: number, v=Vec3.FORWARD ) : Vec3{
         // Rodrigues Rotation formula:
         // v_rot = v * cos(theta) + cross( axis, v ) * sin(theta) + axis * dot( axis, v) * (1-cos(theta))
@@ -301,7 +322,7 @@ export default class Vec3 extends Array< number >{
         return this;
     }
 
-    /** Project Postion onto a Plane */
+    /** Project Position onto a Plane */
     fromPlaneProj( v: ConstVec3, planePos: ConstVec3, planeNorm: ConstVec3 ): this{
         // p = target + norm * -( dot( norm, target ) + planeConst )
         const planeConst = -Vec3.dot( planePos, planeNorm );
@@ -825,3 +846,36 @@ export default class Vec3 extends Array< number >{
 
     // #endregion
 }
+
+
+
+/** Compute world orientation from an orthogonal top & forward unit vector */
+// static eulerVectors(
+//     up: Array<number>,
+//     fwd: Array<number>,
+//   ): Array<number> {
+//     const out: Array<number> = [0, 0, 0];
+//     const toDeg: number = 180 / Math.PI;
+//     const tHemi: number = vec3.dot(fwd, [0, 1, 0]); // Top Hemisphere
+//     const rHemi: number = Math.sign(vec3.dot([1, 0, 0], fwd)); // Right Hemisphere
+
+//     if (tHemi <= -0.999) {
+//       // Bottom Pole
+//       out[0] = 90;
+//       out[1] = vec3.angle(up, [0, 0, 1]) * rHemi * toDeg;
+//     } else if (tHemi >= 0.999) {
+//       // Top Pole
+//       out[0] = -90;
+//       out[1] = vec3.angle(up, [0, 0, 1]) * rHemi * toDeg;
+//     } else {
+//       // Polar coordinates
+//       const vFlat: Array<number> = vec3.normalize(
+//         [0, 0, 0],
+//         [fwd[0], 0, fwd[2]],
+//       ); // Flatten Direction to XZ plane
+//       out[1] = vec3.angle([0, 0, 1], vFlat) * rHemi * toDeg;
+//       out[0] = (vec3.angle(fwd, [0, 1, 0]) - Math.PI * 0.5) * toDeg;
+//     }
+
+//     return out;
+//   }

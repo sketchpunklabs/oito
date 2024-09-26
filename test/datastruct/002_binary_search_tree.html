@@ -1,0 +1,536 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+//#region IMPORTS
+// import useThreeWebGL2, { useDarkScene, useVisualDebug } from '../_lib/useThreeWebGL2.js';
+import { Polygon2D } from '../../packages/geo/src/index.ts';
+//#endregion
+
+//#region MAIN
+// let App   = useDarkScene( useThreeWebGL2() );
+// let Debug = {};
+// let Ref   = {};
+
+window.addEventListener( 'load', async _=>{
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Setup
+    // App.sphericalLook( 0, 20, 6 );
+    // Debug = await useVisualDebug( App );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+    const bst = new BSTArray();
+
+    bst.add( 5 );
+    bst.add( 3 );
+    bst.add( 10 );
+    bst.add( 4 );
+    bst.add( 1 );
+    bst.add( -1 );
+    bst.add( 2 );
+
+    bst.add( 20 );
+    // bst.add( 4.5 );
+    bst.add( 3.5);
+    bst.add( 3.1 );
+
+    // bst.removeValue( 5 ); 
+
+    // console.log( 'minIndex', bst.min() );
+    // console.log( 'maxIndex', bst.max( 6 ) );
+
+    // bst.inOrder();
+    // for( const v of bst.inOrderIter() ) console.log( 'iter :', v );
+    // bst.preOrder();
+    // for( const v of bst.preOrderIter() ) console.log( 'iter :', v );
+
+    // bst.postOrder();
+    // for( const v of bst.postOrderIter() ) console.log( 'iter :', v );
+
+    // console.log( bst.depthAt(), 'lft', bst.depthAt( 1 ), 'rit', bst.depthAt( 2 ) );
+
+    bst.debug();
+    console.log( 'R00t', bst.depthAt(), 'lft', bst.depthAt( 1 ), 'rit', bst.depthAt( 2 ) );
+    console.log( 'Count', bst.count() );
+
+    // bst.balance().debug();
+    // console.log( 'R00t', bst.depthAt(), 'lft', bst.depthAt( 1 ), 'rit', bst.depthAt( 2 ) );
+
+    // for( const v of bst.inOrderIter() ) console.log( 'iter :', v );
+    // console.log( bst.items );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // App.renderLoop();
+    // App.createRenderLoop( onPreRender ).start();
+});
+
+//#endregion
+
+
+class BSTArray{
+    // #region MAIN
+    items   = [];
+    compare = ( a, b )=>{ return ( a === b )? 0 : ( a < b )? -1 : 1; };
+    constructor( fnCompare ){
+        if( fnCompare ) this.compare = fnCompare;
+    }
+    // #endregion
+
+    // #region INDICES
+    parentIndex( i ){ return Math.floor( ( i - 1 ) / 2 ); }
+    leftIndex( i ){ return 2 * i + 1; }
+    rightIndex( i ){ return 2 * i + 2; }
+    depth( i ){ return Math.floor( Math.log2( i + 1 ) ); }
+
+    isLeaf( i ){
+        if( ( 2 * i + 2 ) >= this.items.length ) return true; // Right index doesn't exist
+
+        return this.items[ 2 * i + 1 ] === undefined 
+            && this.items[ 2 * i + 2 ] === undefined;
+    }
+
+    findIndex( v ){
+        const max = this.items.length;
+        let idx   = 0;
+
+        while( true ){
+            if( idx >= max ) break; // Break out early if the end of the tree
+
+            switch( this.compare( v, this.items[ idx ] ) ){
+                case 0  : return idx;               // Equal
+                case -1 : idx = 2 * idx + 1; break; // Left
+                case 1  : idx = 2 * idx + 2; break; // Right
+            }
+        }
+        
+        return -1;
+    }    
+    
+    depthAt( idx=0 ){
+        const stack = [ [idx,1] ];
+        const max   = this.items.length;
+        let i;
+        let d;
+        let dm = 0;
+        while( stack.length > 0 ){
+            [ i, d ] = stack.pop();
+            if( this.items[i] !== undefined ){
+                stack.push( [ i * 2 + 1, d+1 ], [ i * 2 + 2, d+1 ] )
+                if( d > dm ) dm = d;
+            }
+        }
+        return dm;
+    }
+
+    count( ){
+        let cnt = 0;
+        for( const i of this.items ){
+            if( i ) cnt++;
+        }
+        return cnt;
+    }
+
+    calcSize( cnt ){
+        if( cnt <= 0 ) return 0;
+
+        let depth = Math.floor( Math.log2( cnt ) ); // General Depth based on item count
+        let total = ( 1 << ( depth + 1 ) ) - 1;     // 2^(depth + 1) - 1 // Array size
+
+        return ( cnt <= total )? total 
+            : ( 1 << ( depth + 2 ) ) - 1; // 2^(depth + 2) - 1  In the even there 1 spare, add one more level
+    }    
+    // #endregion
+
+    // #region OPERATIONS
+    add( v ){
+        if( this.items.length === 0 ) this.items.push( v );
+        else{
+            let idx = 0;    // Start at the root node
+            let chk = 0;
+            let lft = -1;
+            let rit = -1;
+            
+            while( true ){
+                chk = this.compare( v, this.items[ idx ] );
+
+                // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                // If duplicate value found, ignore it
+                if( chk === 0 ) return this;
+
+                // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                // Create new depth in array
+                rit = this.rightIndex( idx );
+                if( rit > this.items.length ){
+                    while( this.items.length <= rit ) this.items.push( undefined );
+                }
+
+                // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                // Test Side Placement
+                if( chk === -1 ){
+                    lft = this.leftIndex( idx );               
+                    if( this.items[ lft ] == null ){
+                        this.items[ lft ] = v;
+                        return this;
+                    }
+                    idx = lft;
+                }else{
+                    if( this.items[ rit ] == null ){
+                        this.items[ rit ] = v;
+                        return this;
+                    }
+                    idx = rit;
+                }
+            }
+        }
+        
+        return this;
+    }
+
+    removeValue( v ){
+        const idx = this.findIndex( v );
+        if( idx >= 0 ) this.removeAt( idx );
+        return this;
+    }
+
+    removeAt( idx ){
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Determine what children exist if any ( leaf )
+        const lft = this.leftIndex( idx );
+        const rit = this.rightIndex( idx );
+
+        const [ lData, rData ] = ( rit < this.items.length )
+            ? [ !!this.items[ lft ], !!this.items[ rit ] ] 
+            : [ false, false ];
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // If its a leaf node, just clear it out
+        if( !lData && !rData ){
+            this.items[ idx ] = undefined;
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // If only 1 child exists, it will replace its parent
+        }else if( lData && !rData ){ 
+            this.items[ idx ] = this.items[ lft ]; 
+            this.items[ lft ] = undefined;
+
+        }else if( !lData && rData ){
+            this.items[ idx ] = this.items[ rit ]; 
+            this.items[ rit ] = undefined;
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // If both children exists
+        }else if( lData && rData ){
+            // Find the most left leaf on the right side
+            const i = this.min( rit );
+            if( i === -1 ){ console.log( 'Error finding replacement for deleting at index', idx ); return this; }
+
+            // Move leaf up, then call remove on it to clean up the branch
+            this.items[ idx ] = this.items[ i ];
+            this.removeAt( i ); 
+        }
+
+        return this;
+    }
+    
+    // Index to the smallest value
+    min( idx=0 ){
+        const max = this.items.length;
+        let lft   = 2 * idx + 1;
+
+        while( lft < max && this.items[ lft ] !== undefined ){
+            idx = lft;
+            lft = 2 * idx + 1;
+        }
+
+        return idx;
+    }
+
+    // Index to the largest value
+    max( idx=0 ){
+        const max = this.items.length;
+        let rit   = 2 * idx + 2;
+
+        while( rit < max && this.items[ rit ] !== undefined ){
+            idx = rit;
+            rit = 2 * idx + 2;
+        }
+
+        return idx;
+    }
+    
+    balance(){
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        const ary  = this.items.sort( this.compare );           // instead just sort it then replace it
+        let max    = ary.indexOf( undefined );                  // Find where undefines start
+        max        = ( max === -1 )? ary.length - 1 : max - 1;  // Last index of data before garbage
+        
+        const size = this.calcSize( max + 1 );
+        const out  = new Array( size );
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Setup stack and initalize new tree
+        let mid     = Math.floor( max * 0.5 );
+        const stack = [ [2, mid+1, max], [1, 0, mid-1] ]; // out index, minRange, maxRange, first children from root 
+        let i;
+        let iMin;
+        let iMax;
+
+        out[ 0 ] = ary[ mid ];   // Set Root
+
+        while( stack.length > 0 ){
+            // --------------------------------
+            // Get next range set to process
+            [ i, iMin, iMax ] = stack.pop();
+            if( iMin > iMax ) continue;
+
+            // --------------------------------
+            // Single item, no range
+            if( iMin === iMax ){ out[ i ] = ary[ iMin ]; continue; }
+
+            // --------------------------------
+            // Handle Range
+            mid      = Math.floor( ( iMax + iMin ) / 2 );
+            out[ i ] = ary[ mid ];
+
+            // --------------------------------
+            // Setup next ranges to process
+            stack.push(
+                [ i*2+2, mid+1, iMax ], // Right
+                [ i*2+1, iMin, mid-1 ], // Left
+            );
+        }
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        this.items = out;
+        return this;
+    }
+    
+    // #endregion
+
+    // #region TRAVERSAL
+
+    // Left Sub Tree first, Then root if subtree, then right subtree
+    // inOrder( idx=0 ){
+    //     const stack = [];
+    //     const max   = this.items.length;
+    //     let i       = idx;
+
+    //     while( i < max || stack.length > 0 ){
+    //         // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //         // stack all the left most items
+    //         while( i < max && this.items[ i ] !== undefined ){
+    //             stack.push( i );
+    //             i = 2 * i + 1;
+    //         }
+
+    //         if( stack.length === 0 ) return;
+
+    //         // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //         // Get next value
+    //         i = stack.pop();
+    //         console.log( 'inOrder [%s] : %s', i, this.items[ i ] );
+
+    //         // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //         // Move to Item's Right
+    //         i = 2 * i + 2;
+    //     }
+    // }
+
+    inOrderIter( idx=0 ){
+        let   i       = idx;
+        const max     = this.items.length;
+        const stack   = [];
+        const result  = { value:null, done:false };
+        const next    = ()=>{
+            if( i < max || stack.length > 0 ){
+
+                // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                // stack all the left most items
+                while( i < max && this.items[ i ] !== undefined ){
+                    stack.push( i );
+                    i = 2 * i + 1;
+                }
+
+                // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                // Traverse to next item
+                if( stack.length === 0 ){
+                    result.done = true;
+                }else{
+                    // Get next value
+                    i            = stack.pop();
+                    result.value = this.items[ i ];
+
+                    // Move to Item's Right
+                    i = 2 * i + 2;
+                }
+
+            }else result.done = true;
+
+            return result;
+        };
+
+        return { [Symbol.iterator](){ return { next }; } };
+    }
+
+    // Root visted first, then left tree, then right tree.
+    // preOrder( idx=0 ){
+    //     const stack = [ idx ];
+    //     const max   = this.items.length;
+    //     let i;
+    //     let rit;
+    //     let lft;
+    //     while( stack.length > 0 ){
+    //         i = stack.pop();
+    //         if( i >= max || this.items[ i ] === undefined ) continue;
+    //         console.log( 'inOrder [%s] : %s', i, this.items[ i ] );
+
+    //         lft = i * 2 + 1;
+    //         rit = i * 2 + 2;
+
+    //         // Want the next item to be the left, so put it second on the stack for POP to work
+    //         // afer down with all the left, then we can move right when out of lefts
+    //         if( rit < max ) stack.push( rit );
+    //         if( lft < max ) stack.push( lft );
+    //     }
+    // }
+
+    preOrderIter( idx=0 ){
+        let rit;
+        let lft;
+        let i         = idx;
+        const max     = this.items.length;
+        const stack   = [ idx ];
+        const result  = { value:null, done:false };
+        const next    = ()=>{
+            if( stack.length > 0 ){
+                i   = stack.pop();
+                lft = i * 2 + 1;
+                rit = i * 2 + 2;
+
+                // Want the next item to be the left, so put it second on the stack for POP to work
+                // afer down with all the left, then we can move right when out of lefts
+                if( rit < max && this.items[ rit ] ) stack.push( rit );
+                if( lft < max && this.items[ lft ] ) stack.push( lft );
+
+                result.value = this.items[ i ];
+            }else result.done = true;
+
+            return result;
+        };
+
+        return { [Symbol.iterator](){ return { next }; } };
+    }
+
+
+    // Left Subtree first, Right SubTree then Root of substree
+    // postOrder(){
+    //     const stack = [ [0,0] ];
+    //     const max   = this.items.length;
+    //     let i       = 1;
+    //     let v;      // Visited: 0 - no, 1 - yes
+    //     let lft;
+    //     let rit;
+
+    //     while( stack.length > 0 ){
+    //         // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //         // Traverse down to left most item if allowed
+    //         while( i > -1 && i < max && this.items[ i ] !== undefined ){
+    //             stack.push( [ i, 0 ] );
+    //             i = i * 2 + 1;
+    //         }
+
+    //         // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //         [ i, v ] = stack.pop();
+    //         rit      = i * 2 + 2;
+
+    //         // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //         if( v === 0 && rit < max && this.items[ rit ] !== undefined ){
+    //             // If there is a right child, put parent back on the stack as visted
+    //             // then use right as the starting point for the next left most traversal
+    //             console.log( '--visited ', i );
+    //             stack.push( [ i, 1 ] ); // Root gets processed last
+    //             i = rit;
+    //         }else{
+    //             console.log( 'postOrder [%s] : %s', i, this.items[ i ] );
+    //             i = -1; // Prevent any left most traversal in the next go around
+    //         }
+    //     }
+    // }
+
+
+    postOrderIter(){
+        let   rit;
+        let   v;
+        let   i       = 1;
+        const max     = this.items.length;
+        const stack   =  [ [0,0] ];
+        const result  = { value:null, done:false };
+        const next    = ()=>{
+            while( stack.length > 0 ){
+                // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                // Traverse down to left most item if allowed
+                while( i > -1 && i < max && this.items[ i ] !== undefined ){
+                    stack.push( [ i, 0 ] );
+                    i = i * 2 + 1;
+                }
+
+                // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                [ i, v ] = stack.pop();
+                rit      = i * 2 + 2;
+
+                // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                if( v === 0 && rit < max && this.items[ rit ] !== undefined ){
+                    // If there is a right child, put parent back on the stack as visted
+                    // then use right as the starting point for the next left most traversal
+                    stack.push( [ i, 1 ] ); // Root gets processed last
+                    i = rit;
+                }else{
+                    result.value = this.items[ i ];
+                    i = -1; // Prevent any left most traversal in the next go around
+                    return result;
+                }
+            }
+
+            result.done = true;
+            return result;
+        };
+
+        return { [Symbol.iterator](){ return { next }; } };
+    }
+
+    // #endregion
+
+    // #region EXTRA
+    debug(){
+        const stack = [0];
+        const dash = '-';
+        let idx;
+        let lft;
+        let rit;
+        let d;
+
+        while( stack.length > 0 ){
+            idx = stack.pop();
+            d   = this.depth( idx );
+            lft = this.leftIndex( idx );
+            rit = this.rightIndex( idx );
+
+            if( rit < this.items.length ) stack.push( rit, lft );
+
+            console.log( '%s %s: %s [%s]', 
+                dash.repeat( d*2 ), 
+                ((idx & 1) === 1)? 'L' : 'R',
+                this.items[ idx ], 
+                idx
+            );
+        }
+    }
+    // #endregion
+}
+
+
+</script></body></html>
+
+
+

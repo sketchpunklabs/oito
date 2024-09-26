@@ -55,6 +55,11 @@ export default class StateMachine{
     // #endregion
   
     // #region MANAGE STACK
+
+    clearPush( name, obj ){
+      this.clear( obj, true );
+      this.push( name );
+    }
   
     // Push a new machine to the top of the stack
     push(name, obj){

@@ -1,0 +1,24 @@
+// Built React
+https://geekpaul.medium.com/lets-build-a-react-from-scratch-part-2-state-management-and-react-hooks-e771c5c06066
+
+// More complex version of making signals
+https://medium.com/@davletovalmir/what-are-signals-in-js-lets-build-one-and-find-out-0bd917dc0f35
+
+
+
+
+
+const fnStack = [];
+
+function callStack( fn ){
+    const idx = fnStack.length;
+    fnStack.push( fn );
+    
+    const rtn = fn();
+    
+    fnStack.length = idx;
+
+    if( idx == 0 ){
+        // Stack is at the root
+    }
+}

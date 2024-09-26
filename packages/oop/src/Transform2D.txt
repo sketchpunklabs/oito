@@ -29,6 +29,7 @@ export default class Transform2D {
   }
 
   // Apply values in reverse order : Translation - Rotation - Scale
+  // If Transform is an inverse, use this to move worldspace pos to local space.
   applyRevTo( out: Array<number> = [0, 0] ): Array<number>{
     // Translate
     const x = out[0] + this.pos[0];
@@ -43,6 +44,25 @@ export default class Transform2D {
     // Scale
     out[0] *= this.scl[0];
     out[1] *= this.scl[1];
+
+    return out;
+  }
+
+  // Apply the inverse transform to point
+  applyInvTo(out: Array<number> = [0, 0]): Array<number> {
+    // Scale
+    const x = out[0] * (1 / this.scl[0]);
+    const y = out[1] * (1 / this.scl[1]);
+
+    // Rotate
+    const cos = Math.cos(-this.rot);
+    const sin = Math.sin(-this.rot);
+    out[0] = x * cos - y * sin;
+    out[1] = x * sin + y * cos;
+
+    // Translation
+    out[0] -= this.pos[0];
+    out[1] -= this.pos[1];
 
     return out;
   }

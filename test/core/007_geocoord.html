@@ -1,0 +1,641 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+// #region IMPORTS
+// import useThreeWebGL2, { useDarkScene, useVisualDebug } from '../_lib/useThreeWebGL2.js';
+// #endregion
+
+// #region MAIN
+// let App   = useDarkScene( useThreeWebGL2() );
+// let Debug = {};
+// let Ref   = {};
+
+window.addEventListener( 'load', async _=>{
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Setup
+    // App.sphericalLook( 45, 20, 6 );
+    // Debug = await useVisualDebug( App );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    // Cheap 5 Meter Offset, not accorate
+    // c.lng + 5 / 111320,
+    // c.lat + 5 / 111320,
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    /* Nearest Point On Line Example
+    const aCoord = [ -122.41549016375149, 37.773166346257405 ];
+    const bCoord = [ -122.41521233764931, 37.7733841396269 ];
+    const bear   = bearing( aCoord, bCoord );
+    const cDest  = destination( aCoord, 23.24030569994401, bear, 'meters' );
+
+    console.log( 'BearingTest', bear ); // Bearing 45.237234595646264
+    console.log( 'Destination', cDest ) // [ -122.41530242111187, 37.77331352163318 ]
+
+    const line = [ [ -122.4152022, 37.7733911 ], [ -122.4155785, 37.7730974 ] ];
+    // const near = nearestPointOnLine( line, cDest ) // [-122.41530201461421, 37.773313195263896 ]
+    // console.log( 'near', near );
+    */
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // rhumbDistance
+    // const a =  [-122.41549016375149, 37.773166346257405];
+    // const b = [-122.4155785, 37.7730974];
+    // console.log( 'rhumbDistance', rhumbDistance( a, b, 'meters' ) ); // 10.911335135429495
+    // console.assert( rhumbDistance( a, b, 'meters' ) === 10.911335135429495 );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    /* Transform Rotate 
+    const pivot = [ -122.41549016375149, 37.773166346257405 ]
+    const line  = [ [ -122.41549016375149, 37.773166346257405 ], [ -122.4155785, 37.7730974 ] ];
+    const rotLine = transformRotate( line, 90, pivot );
+
+    const bear  = bearing( pivot, rotLine[1] );
+    const rotPnt = destination( pivot, 15, bear, 'meters' );
+
+    console.log( 'rotLine', rotLine ); // [ [ -122.41549016375143, 37.773166346257405 ], [ -122.41557738873752, 37.77323617096842 ] ]
+    console.log( 'bear', bear ) // -44.63728206814825
+    console.log( 'rotPnt', rotPnt ); // [ -122.41561007348179, 37.7732623354715 ]
+    */
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const line = [ [ -122.4152022, 37.7733911 ], [ -122.4155785, 37.7730974 ] ];
+    let dist = 0;
+    let prev = line[0];
+    let curr;
+    for (let i = 1; i < line.length; i++) {
+        curr = line[i];
+        dist += distance( prev, curr, 'meters' );
+        prev = curr;
+    }
+    console.log( 'Dist', dist ); // 46.48061139988802
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // App.renderLoop();
+    // App.createRenderLoop( onPreRender ).start();
+});
+
+// #endregion
+
+// #region HELPERS 
+
+// Unit of measurement factors based on earthRadius
+const EARTH_RADIUS  = 6371008.8;
+const UNITS         = {
+  centimeters   : EARTH_RADIUS * 100,
+  centimetres   : EARTH_RADIUS * 100,
+  degrees       : 360 / ( 2 * Math.PI ),
+  feet          : EARTH_RADIUS * 3.28084,
+  inches        : EARTH_RADIUS * 39.37,
+  kilometers    : EARTH_RADIUS / 1000,
+  kilometres    : EARTH_RADIUS / 1000,
+  meters        : EARTH_RADIUS,
+  metres        : EARTH_RADIUS,
+  miles         : EARTH_RADIUS / 1609.344,
+  millimeters   : EARTH_RADIUS * 1000,
+  millimetres   : EARTH_RADIUS * 1000,
+  nauticalmiles : EARTH_RADIUS / 1852,
+  radians       : 1,
+  yards         : EARTH_RADIUS * 1.0936,
+};
+
+// % 360 degrees in case someone passes value > 360
+function degToRad( deg ){ return ( ( deg % 360 ) * Math.PI) / 180; }
+
+// % (2 * Math.PI) radians in case someone passes value > 2π
+function radToDeg( rad ){ return ( ( rad % ( 2 * Math.PI ) ) * 180) / Math.PI; }
+
+// length to radians
+function lenToRad( distance, units='meters' ){
+  const u = UNITS[ units ];
+  if( !u ) throw new Error( units + ' units is invalid' );
+  return distance / u;
+}
+
+function radToLen( radians, units='meters' ){
+  const u = UNITS[ units ];
+  if( !u ) throw new Error( units + ' units is invalid' );
+  return radians * u;
+}
+
+function convertLen( len, fromUnit='kilometers', toUnit='kilometers' ){
+    if( !( len >= 0 ) ) throw new Error( 'length must be a positive number' );
+    return ( fromUnit === toUnit )? len : radToLen( lenToRad( len, fromUnit ), toUnit );
+}
+// #endregion
+
+// TESTED - https://github.com/Turfjs/turf/blob/master/packages/turf-bearing/index.ts
+function bearing( start, end, isFinal=false ){
+    const lon1  = degToRad( start[0] );
+    const lat1  = degToRad( start[1] );
+    const lon2  = degToRad( end[0] );  
+    const lat2  = degToRad( end[1] );
+    const cLat2 = Math.cos( lat2 );
+
+    const a     = Math.sin( lon2 - lon1 ) * cLat2;
+    const b     = Math.cos( lat1) * Math.sin( lat2 ) -
+                    Math.sin( lat1) * cLat2 * Math.cos( lon2 - lon1 );
+
+    const deg   = radToDeg( Math.atan2(a, b) );
+
+    // Reverse calculation when final
+    return ( !isFinal )? deg : (deg + 180) % 360;
+}
+
+// TESTED - https://github.com/Turfjs/turf/blob/master/packages/turf-rhumb-bearing/index.ts
+// Finds the bearing angle between them along a Rhumb line, i.e. the angle measured in degrees start the north line (0 degrees)
+function rhumbBearing( start, end, isFinal=false ){
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Swop depending on isFinal
+    const from = ( !isFinal )? start : end;
+    const to   = ( !isFinal )? end   : start;
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // φ  => phi
+    // Δλ => deltaLambda
+    // Δψ => deltaPsi
+    // θ  => theta
+    const phi1      = degToRad( from[1] );
+    const phi2      = degToRad( to[1] );
+    let deltaLambda = degToRad( to[0] - from[0] );
+
+    // if deltaLambdaon over 180° take shorter rhumb line across the anti-meridian:
+    if( deltaLambda > Math.PI )  deltaLambda -= 2 * Math.PI;
+    if( deltaLambda < -Math.PI ) deltaLambda += 2 * Math.PI;
+
+    const deltaPsi  = Math.log(
+        Math.tan( phi2 * 0.5 + Math.PI * 0.25 ) /  // Math.tan( phi2 / 2 + Math.PI / 4 ) / 
+        Math.tan( phi1 * 0.5 + Math.PI * 0.25 )    // Math.tan( phi1 / 2 + Math.PI / 4 )
+    );
+
+    const theta     = Math.atan2(deltaLambda, deltaPsi);
+    const bear360   = ( radToDeg( theta ) + 360 ) % 360;
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    return ( bear360 > 180 )? -( 360 - bear360 ) : bear360;
+}
+
+// TESTED - https://github.com/Turfjs/turf/blob/master/packages/turf-destination/index.ts
+function destination( origin, distance, bearing, units='meters' ){
+    const lon1      = degToRad( origin[0] );
+    const lat1      = degToRad( origin[1] );
+    const bearRad   = degToRad( bearing );
+    const lenRad    = lenToRad( distance, units );
+
+    // Main
+    const lat2 = Math.asin(
+        Math.sin( lat1 ) * Math.cos( lenRad ) +
+        Math.cos( lat1 ) * Math.sin( lenRad ) * Math.cos ( bearRad )
+    );
+
+    const lon2 = lon1 + Math.atan2(
+        Math.sin( bearRad ) * Math.sin( lenRad ) * Math.cos( lat1 ),
+        Math.cos( lenRad )  - Math.sin( lat1 )   * Math.sin( lat2 )
+    );
+
+    return [ radToDeg( lon2 ), radToDeg( lat2 ) ];
+}
+
+// TESTED - https://github.com/Turfjs/turf/tree/master/packages/turf-rhumb-destination
+function rhumbDestination( origin, distance, bearing, units='meters' ){
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    let distanceInMeters = convertLen( Math.abs( distance ), units, 'meters' );
+    if( distance < 0 ) distanceInMeters = -Math.abs( distanceInMeters );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const delta     = distanceInMeters / EARTH_RADIUS;  // angular distance in radians
+    const lambda1   = ( origin[0] * Math.PI ) / 180;    // to radians, but without normalize to 𝜋
+    const phi1      = degToRad( origin[1] );
+    const theta     = degToRad( bearing );
+
+    const DeltaPhi  = delta * Math.cos( theta );
+    let phi2        = phi1 + DeltaPhi;
+
+    // check for some daft bugger going past the pole, normalise latitude if so
+    if( Math.abs(phi2) > Math.PI / 2 ) phi2 = ( phi2 > 0 )? Math.PI - phi2 : -Math.PI - phi2;
+
+    const DeltaPsi = Math.log(
+        Math.tan( phi2 / 2 + Math.PI / 4 ) / 
+        Math.tan( phi1 / 2 + Math.PI / 4 )
+    );
+
+    // E-W course becomes ill-conditioned with 0/0
+    const q             = ( Math.abs(DeltaPsi) > 10e-12 )? DeltaPhi / DeltaPsi : Math.cos( phi1 );
+    const DeltaLambda   = ( delta * Math.sin( theta ) ) / q;
+    const lambda2       = lambda1 + DeltaLambda;
+
+    // normalise to −180..+180°
+    const dest          = [
+        (( (lambda2 * 180) / Math.PI + 540 ) % 360 ) - 180,
+        ( phi2 * 180 ) / Math.PI,
+    ];
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // compensate the crossing of the 180th meridian (https://macwright.org/2016/09/26/the-180th-meridian.html)
+    // solution from https://github.com/mapbox/mapbox-gl-js/issues/3250#issuecomment-294887678
+    dest[0] += ( dest[0] - origin[0] > 180 )
+        ? -360
+        : ( origin[0] - dest[0] > 180 )? 360 : 0;
+
+    return dest;
+}
+
+// TESTED - https://github.com/Turfjs/turf/blob/master/packages/turf-distance/index.ts
+function distance( from, to, units='meters' ){
+  const dLat = degToRad( to[1] - from[1] );
+  const dLon = degToRad( to[0] - from[0] );
+  const lat1 = degToRad( from[1] );
+  const lat2 = degToRad( to[1] );
+  const a    = Math.pow( Math.sin( dLat / 2 ), 2 ) +
+               Math.pow( Math.sin( dLon / 2 ), 2 ) * Math.cos( lat1 ) * Math.cos( lat2 );
+
+  return radToLen( 2 * Math.atan2( Math.sqrt( a ), Math.sqrt( 1 - a ) ), units );
+}
+
+// TESTED - https://github.com/Turfjs/turf/tree/master/packages/turf-rhumb-distance
+// Returns the distance travelling from ‘this’ point to destination point along a rhumb line.
+function rhumbDistance( from, to, units='meters' ){
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const mTo = to.slice( 0 );
+
+    // compensate the crossing of the 180th meridian (https://macwright.org/2016/09/26/the-180th-meridian.html)
+    // solution from https://github.com/mapbox/mapbox-gl-js/issues/3250#issuecomment-294887678
+    mTo[0] += ( to[0] - from[0] > 180 )
+        ? -360
+        : ( from[0] - to[0] > 180 )? 360 : 0;
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // see www.edwilliams.org/avform.htm#Rhumb
+    const R           = EARTH_RADIUS;
+    const phi1        = ( from[1] * Math.PI ) / 180;
+    const phi2        = ( mTo[1] * Math.PI ) / 180;
+    const DeltaPhi    = phi2 - phi1;
+    let DeltaLambda   = ( Math.abs( mTo[0] - from[0] ) * Math.PI ) / 180;
+    
+    // if dLon over 180° take shorter rhumb line across the anti-meridian:
+    if( DeltaLambda > Math.PI ) DeltaLambda -= 2 * Math.PI;
+
+    // on Mercator projection, longitude distances shrink by latitude; q is the 'stretch factor'
+    // q becomes ill-conditioned along E-W line (0/0); use empirical tolerance to avoid it
+    const DeltaPsi = Math.log(
+        Math.tan( phi2 / 2 + Math.PI / 4 ) / 
+        Math.tan( phi1 / 2 + Math.PI / 4 )
+    );
+
+    const q = ( Math.abs( DeltaPsi ) > 10e-12 )? DeltaPhi / DeltaPsi : Math.cos(phi1);
+
+    // distance is pythagoras on 'stretched' Mercator projection
+    const delta      = Math.sqrt( DeltaPhi * DeltaPhi + q * q * DeltaLambda * DeltaLambda ); // angular distance in radians
+    const distMeters = delta * EARTH_RADIUS;
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    return convertLen( distMeters, 'meters', units );
+}
+
+
+// TESTED - https://github.com/Turfjs/turf/blob/master/packages/turf-transform-rotate/index.ts
+function transformRotate( aryCoords, angle, pivot=null ){
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+    if( angle === 0 ) return aryCoord; // Shortcut no-rotation
+    if( angle == null || isNaN(angle)) throw new Error( 'angle is required' );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const pcoord    = pivot ?? centroid( aryCoords );
+    const out       = new Array( aryCoords.length );
+    
+    let i = 0;
+    for( const c of aryCoords ){
+        const fromAngle = rhumbBearing( pcoord, c );    // Get current angle
+        const toAngle   = fromAngle + angle;            // Add Rotation
+        const dist      = rhumbDistance( pcoord, c );   // Distance from pivot point
+        out[ i ]        = rhumbDestination( pcoord, dist,  toAngle );
+        i++;
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    return out;
+}
+
+// NOT_TESTED - https://github.com/Turfjs/turf/blob/master/packages/turf-centroid/index.ts
+function centroid( aryCoord ){
+    let xSum = 0;
+    let ySum = 0;
+    let len  = 0;
+    for( const c of aryCoord ){
+        xSum += c[0];
+        ySum += c[1];
+        len++;
+    }
+    return [ xSum / len, ySum / len ];
+}
+
+// NOT_TESTED - https://github.com/Turfjs/turf/tree/master/packages/turf-bbox
+function bbox( aryCoords ){
+  const out = [ Infinity, Infinity, -Infinity, -Infinity ];
+
+  for( const c of aryCoords ){
+    if( out[0] > c[0] ) out[0] = c[0];
+    if( out[1] > c[1] ) out[1] = c[1];
+    if( out[2] < c[0] ) out[2] = c[0];
+    if( out[3] < c[1] ) out[3] = c[1];
+  }
+
+  return out;
+}
+
+
+// https://github.com/rowanwins/sweepline-intersections/tree/master/src
+
+// NOT_TESTED - https://github.com/Turfjs/turf/tree/master/packages/turf-nearest-point-on-line
+/*
+function nearestPointOnLine( aryCoords, pt, units='meters' ){
+
+  let closestPt = point([Infinity, Infinity], {
+    dist: Infinity,
+    index: -1,
+    multiFeatureIndex: -1,
+    location: -1,
+  });
+
+  let closetsPt = [ Infinity, Infinity ];
+  let length    = 0.0;
+  let dist;
+  let curr;
+
+  let lastPnt   = aryCoords[ 0 ];
+  let lastDist  = distance( pt, lastPnt, units );
+
+  for( let i=1; i < aryCoords.length; i++ ){
+    curr = aryCoords[ i ];
+    dist = distance( pt, curr, units );
+    len  = distance( lastPnt, curr, units ); //sectionLength
+
+    // perpendicular - Height Distance
+    const hDist     = Math.max( lastDist, dist );
+
+    const dir       = bearing( lastPnt, curr );
+
+    const perpPt1   = destination( pt, hDist, dir + 90, units );
+    const perpPt2   = destination( pt, hDist, dir - 90, units );
+
+    const intersect = lineIntersects(
+          lineString([
+            perpendicularPt1.geometry.coordinates,
+            perpendicularPt2.geometry.coordinates,
+          ]),
+          lineString([start.geometry.coordinates, stop.geometry.coordinates])
+        );
+
+        // //start
+        // const start: Feature<Point, { dist: number }> = point(coords[i]);
+        // start.properties.dist = distance(pt, start, units );
+        
+        // //stop
+        // const stop: Feature<Point, { dist: number }> = point(coords[i + 1]);
+        // stop.properties.dist = distance(pt, stop, units );
+        
+        // sectionLength
+        // const sectionLength = distance( start, stop, units );
+        
+        //perpendicular
+        // const heightDistance = Math.max(
+        //   start.properties.dist,
+        //   stop.properties.dist
+        // );
+
+        // const direction = bearing(start, stop);
+        // const perpendicularPt1 = destination(
+        //   pt,
+        //   heightDistance,
+        //   direction + 90,
+        //   options
+        // );
+        // const perpendicularPt2 = destination(
+        //   pt,
+        //   heightDistance,
+        //   direction - 90,
+        //   options
+        // );
+        // const intersect = lineIntersects(
+        //   lineString([
+        //     perpendicularPt1.geometry.coordinates,
+        //     perpendicularPt2.geometry.coordinates,
+        //   ]),
+        //   lineString([start.geometry.coordinates, stop.geometry.coordinates])
+        // );
+
+        let intersectPt:
+          | Feature<
+              Point,
+              { dist: number; multiFeatureIndex: number; location: number }
+            >
+          | undefined;
+
+        if (intersect.features.length > 0 && intersect.features[0]) {
+          intersectPt = {
+            ...intersect.features[0],
+            properties: {
+              dist: distance(pt, intersect.features[0], options),
+              multiFeatureIndex: multiFeatureIndex,
+              location:
+                length + distance(start, intersect.features[0], options),
+            },
+          };
+        }
+
+        if (start.properties.dist < closestPt.properties.dist) {
+          closestPt = {
+            ...start,
+            properties: {
+              ...start.properties,
+              index: i,
+              multiFeatureIndex: multiFeatureIndex,
+              location: length,
+            },
+          };
+        }
+
+        if (stop.properties.dist < closestPt.properties.dist) {
+          closestPt = {
+            ...stop,
+            properties: {
+              ...stop.properties,
+              index: i + 1,
+              multiFeatureIndex: multiFeatureIndex,
+              location: length + sectionLength,
+            },
+          };
+        }
+
+        if (
+          intersectPt &&
+          intersectPt.properties.dist < closestPt.properties.dist
+        ) {
+          closestPt = {
+            ...intersectPt,
+            properties: { ...intersectPt.properties, index: i },
+          };
+        }
+        // update length
+        length += sectionLength;
+
+
+  }
+
+  flattenEach(
+    lines,
+    function (line: any, _featureIndex: number, multiFeatureIndex: number) {
+      
+        const coords: any = getCoords(line);
+
+      for (let i = 0; i < coords.length - 1; i++) {
+        //start
+        const start: Feature<Point, { dist: number }> = point(coords[i]);
+        start.properties.dist = distance(pt, start, options);
+        //stop
+        const stop: Feature<Point, { dist: number }> = point(coords[i + 1]);
+        stop.properties.dist = distance(pt, stop, options);
+        // sectionLength
+        const sectionLength = distance(start, stop, options);
+        //perpendicular
+        const heightDistance = Math.max(
+          start.properties.dist,
+          stop.properties.dist
+        );
+        const direction = bearing(start, stop);
+        const perpendicularPt1 = destination(
+          pt,
+          heightDistance,
+          direction + 90,
+          options
+        );
+        const perpendicularPt2 = destination(
+          pt,
+          heightDistance,
+          direction - 90,
+          options
+        );
+        const intersect = lineIntersects(
+          lineString([
+            perpendicularPt1.geometry.coordinates,
+            perpendicularPt2.geometry.coordinates,
+          ]),
+          lineString([start.geometry.coordinates, stop.geometry.coordinates])
+        );
+        let intersectPt:
+          | Feature<
+              Point,
+              { dist: number; multiFeatureIndex: number; location: number }
+            >
+          | undefined;
+
+        if (intersect.features.length > 0 && intersect.features[0]) {
+          intersectPt = {
+            ...intersect.features[0],
+            properties: {
+              dist: distance(pt, intersect.features[0], options),
+              multiFeatureIndex: multiFeatureIndex,
+              location:
+                length + distance(start, intersect.features[0], options),
+            },
+          };
+        }
+
+        if (start.properties.dist < closestPt.properties.dist) {
+          closestPt = {
+            ...start,
+            properties: {
+              ...start.properties,
+              index: i,
+              multiFeatureIndex: multiFeatureIndex,
+              location: length,
+            },
+          };
+        }
+
+        if (stop.properties.dist < closestPt.properties.dist) {
+          closestPt = {
+            ...stop,
+            properties: {
+              ...stop.properties,
+              index: i + 1,
+              multiFeatureIndex: multiFeatureIndex,
+              location: length + sectionLength,
+            },
+          };
+        }
+
+        if (
+          intersectPt &&
+          intersectPt.properties.dist < closestPt.properties.dist
+        ) {
+          closestPt = {
+            ...intersectPt,
+            properties: { ...intersectPt.properties, index: i },
+          };
+        }
+        // update length
+        length += sectionLength;
+      }
+    }
+  );
+
+  return closestPt;
+}
+*/
+
+// NOT_TESTED - https://github.com/Turfjs/turf/tree/master/packages/turf-line-intersect
+/*
+function lineIntersect( line1, line2, removeDuplicates = true, ignoreSelfIntersections = true ){
+  const { removeDuplicates = true, ignoreSelfIntersections = false } = options;
+  let features: Feature<G1 | G2>[] = [];
+  if (line1.type === "FeatureCollection")
+    features = features.concat(line1.features);
+  else if (line1.type === "Feature") features.push(line1);
+  else if (
+    line1.type === "LineString" ||
+    line1.type === "Polygon" ||
+    line1.type === "MultiLineString" ||
+    line1.type === "MultiPolygon"
+  ) {
+    features.push(feature(line1));
+  }
+
+  if (line2.type === "FeatureCollection")
+    features = features.concat(line2.features);
+  else if (line2.type === "Feature") features.push(line2);
+  else if (
+    line2.type === "LineString" ||
+    line2.type === "Polygon" ||
+    line2.type === "MultiLineString" ||
+    line2.type === "MultiPolygon"
+  ) {
+    features.push(feature(line2));
+  }
+
+  // https://github.com/rowanwins/sweepline-intersections/tree/master
+  // findIntersections is sweepline-intersections
+  const intersections = findIntersections(
+    featureCollection(features),
+    ignoreSelfIntersections
+  );
+
+  let results: Intersection[] = [];
+  if (removeDuplicates) {
+    const unique: Record<string, boolean> = {};
+    intersections.forEach((intersection) => {
+      const key = intersection.join(",");
+      if (!unique[key]) {
+        unique[key] = true;
+        results.push(intersection);
+      }
+    });
+  } else {
+    results = intersections;
+  }
+  return featureCollection(results.map((r) => point(r)));
+}
+*/
+
+
+</script></body></html>

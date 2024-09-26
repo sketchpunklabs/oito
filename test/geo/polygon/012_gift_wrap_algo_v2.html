@@ -168,7 +168,7 @@ function giftWrappingAlgo2( pnts ){
 
             if( nxPnt == onHull 
                 || o == 1      // If is CCW
-                || ( o == 0 && dist( onHull, pnts[i]) > dist(onHull, nxPnt) ) // Better if further away
+                || ( o == 0 && dist( onHull, pnts[i]) > dist(onHull, nxPnt) ) // Co-linear, Better if further away
             ) nxPnt = pnts[i];
         }
         

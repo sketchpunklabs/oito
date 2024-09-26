@@ -13,3 +13,7 @@ m, n, o, p
 xAxis = (a, e, i)  ( 0, 4,  8 )
 yAxis = (b, f, j)  ( 1, 5,  9 )
 zAxis = (c, g, k)  ( 2, 6, 10 )
+
+
+Different Box-Frustum Intersection
+https://iquilezles.org/articles/frustumcorrect/
