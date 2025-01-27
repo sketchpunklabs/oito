@@ -9,6 +9,58 @@
 
 
 window.addEventListener( 'load', async _=>{
+
+    // claude exampe 1
+    // // Create a signal
+    // const count = new Signal(0);
+    // const name = new Signal("John");
+
+    // // Create a computed signal
+    // const doubleCount = computed(() => count.value * 2);
+
+    // // Create an effect
+    // effect(() => {
+    // console.log(`Count is ${count.value}`);
+    // console.log(`Double count is ${doubleCount.value}`);
+    // });
+
+    // // Bind to DOM
+    // const counterElement = document.querySelector('#counter');
+    // bind(counterElement, count);
+
+    // // Update signals
+    // count.value = 1;  // Automatically updates effects and DOM
+
+    // // Update using a function
+    // count.update(c => c + 1);
+
+    // // Batch multiple updates
+    // batch(() => {
+    // count.value = 10;
+    // name.value = "Jane";
+    // });
+
+    // Claude Example 2
+    // Create signals
+    // const count = new Signal(0);
+    // const name = new Signal("John");
+
+    // // Create multiple effects
+    // effect(() => console.log(`Count changed to: ${count.value}`));
+    // effect(() => console.log(`Name changed to: ${name.value}`));
+
+    // // Atomic transaction
+    // transaction(() => {
+    // count.value = 1;
+    // name.value = "Jane";
+    // // Effects will run only after both updates are complete
+    // });
+
+    // // Multiple updates in same microtask get batched
+    // count.value = 1;
+    // count.value = 2;
+    // count.value = 3;
+    // // Effects will run only once with final value
   
 });
 
@@ -18,5 +70,134 @@ window.addEventListener( 'load', async _=>{
 // https://calendar.perfplanet.com/2022/signals-the-nitty-gritty/
 // https://github.com/WebReflection/signal
 // https://github.com/WebReflection/usignal
+
+// CLAUDE GENERATED
+
+// Scheduler for batching updates
+const scheduler = {
+  tasks: new Set(),
+  running: false,
+
+  schedule(task) {
+    this.tasks.add(task);
+    if (!this.running) {
+      this.running = true;
+      queueMicrotask(() => this.flush());
+    }
+  },
+
+  flush() {
+    // Run all scheduled tasks
+    for (const task of this.tasks) {
+      try {
+        task();
+      } catch (error) {
+        console.error('Error in effect:', error);
+      }
+    }
+    
+    // Clear tasks and reset running flag
+    this.tasks.clear();
+    this.running = false;
+  }
+};
+
+
+
+// Effect tracking
+let currentEffect = null;
+
+class Signal {
+  #value;
+  #subscribers = new Set();
+  #pending = new Set();
+  
+  constructor(initialValue) {
+    this.#value = initialValue;
+  }
+  
+  get value() {
+    if (currentEffect) {
+      this.#subscribers.add(currentEffect);
+    }
+    return this.#value;
+  }
+  
+  set value(newValue) {
+    if (this.#value === newValue) return;
+    this.#value = newValue;
+    
+    // Queue subscribers that need to be run
+    for (const effect of this.#subscribers) {
+      this.#pending.add(effect);
+    }
+    
+    // Schedule update if we have pending effects
+    if (this.#pending.size > 0) {
+      scheduler.schedule(() => this.#notify());
+    }
+  }
+  
+  #notify() {
+    // Run pending effects and clear them
+    const effects = Array.from(this.#pending);
+    this.#pending.clear();
+    this.#subscribers.clear();
+    effects.forEach(effect => effect());
+  }
+  
+  update(fn) {
+    this.value = fn(this.#value);
+  }
+}
+
+// Create a computed signal
+function computed(fn) {
+  const signal = new Signal(undefined);
+  const compute = () => {
+    currentEffect = compute;
+    signal.value = fn();
+    currentEffect = null;
+  };
+  compute();
+  return signal;
+}
+
+// Create an effect
+function effect(fn) {
+  const run = () => {
+    currentEffect = run;
+    fn();
+    currentEffect = null;
+  };
+  run();
+}
+
+// Create a DOM binding helper
+function bind(element, signal) {
+  effect(() => {
+    element.textContent = signal.value;
+  });
+}
+
+// Batch multiple signal updates
+function batch(fn) {
+  const prevEffect = currentEffect;
+  currentEffect = null;
+  fn();
+  currentEffect = prevEffect;
+}
+
+// Transaction helper for atomic updates
+function transaction(fn) {
+  batch(() => {
+    // Run the transaction function
+    fn();
+    
+    // Force flush the scheduler
+    scheduler.flush();
+  });
+}
+
 
 </script></body></html>

@@ -1,0 +1,179 @@
+function snapPointsToPlane(
+  pnts: PointArray,
+  planePos: Array<number>,
+  planeNorm: Array<number>,
+): PointArray {
+  const rtn: PointArray = [];
+  let dot;
+
+  for (const p of pnts) {
+    // Projection
+    dot =
+      (p[0] - planePos[0]) * planeNorm[0] +
+      (p[1] - planePos[1]) * planeNorm[1] +
+      (p[2] - planePos[2]) * planeNorm[2];
+
+    // Move point to plane
+    rtn.push([
+      p[0] - dot * planeNorm[0],
+      p[1] - dot * planeNorm[1],
+      p[2] - dot * planeNorm[2],
+    ]);
+  }
+
+  return rtn;
+}
+
+/** Compute a plane from a set of points, return [ centroid, normal ] */
+function polyBestFitPlane(pnts: PointArray): [Point, Point] | null {
+  // At least three points required
+  const len = pnts.length;
+  if (len < 3) {
+    return null;
+  }
+
+  // Calculate full 3x3 covariance matrix, excluding symmetries:
+  const cent = polyCentroid(pnts);
+
+  let xx = 0.0;
+  let xy = 0.0;
+  let xz = 0.0;
+  let yy = 0.0;
+  let yz = 0.0;
+  let zz = 0.0;
+  let rx, ry, rz;
+
+  for (const p of pnts) {
+    rx = p[0] - cent[0];
+    ry = p[1] - cent[1];
+    rz = p[2] - cent[2];
+    xx += rx * rx;
+    xy += rx * ry;
+    xz += rx * rz;
+    yy += ry * ry;
+    yz += ry * rz;
+    zz += rz * rz;
+  }
+
+  xx /= len;
+  xy /= len;
+  xz /= len;
+  yy /= len;
+  yz /= len;
+  zz /= len;
+
+  // Do linear regression along the X, Y and Z axis
+  // Weight the result of the linear regressions based on the square of the determinant
+  const norm = [0, 0, 0];
+  const axis = [0, 0, 0];
+  let wgt = 0;
+  let det = 0;
+
+  // X
+  det = yy * zz - yz * yz;
+  wgt = det * det;
+  axis[0] = det;
+  axis[1] = xz * yz - xy * zz;
+  axis[2] = xy * yz - xz * yy;
+
+  if (vec3.dot(norm, axis) < 0.0) {
+    wgt = -wgt;
+  }
+
+  norm[0] += axis[0] * wgt;
+  norm[1] += axis[1] * wgt;
+  norm[2] += axis[2] * wgt;
+
+  // Y
+  det = xx * zz - xz * xz;
+  wgt = det * det;
+  axis[0] = xz * yz - xy * zz;
+  axis[1] = det;
+  axis[2] = xy * xz - yz * xx;
+
+  if (vec3.dot(norm, axis) < 0.0) {
+    wgt = -wgt;
+  }
+
+  norm[0] += axis[0] * wgt;
+  norm[1] += axis[1] * wgt;
+  norm[2] += axis[2] * wgt;
+
+  // Z
+  det = xx * yy - xy * xy;
+  wgt = det * det;
+  axis[0] = xy * yz - xz * yy;
+  axis[1] = xy * xz - yz * xx;
+  axis[2] = det;
+
+  if (vec3.dot(norm, axis) < 0.0) {
+    wgt = -wgt;
+  }
+
+  norm[0] += axis[0] * wgt;
+  norm[1] += axis[1] * wgt;
+  norm[2] += axis[2] * wgt;
+
+  // Normalize normal direction
+  const mag = Math.sqrt(norm[0] ** 2 + norm[1] ** 2 + norm[2] ** 2);
+  norm[0] /= mag;
+  norm[1] /= mag;
+  norm[2] /= mag;
+
+  // Is a Number, Not Infinity +-, not NaN
+  if (
+    Number.isFinite(norm[0]) &&
+    Number.isFinite(norm[1]) &&
+    Number.isFinite(norm[2])
+  ) {
+    return [cent, norm];
+  } else {
+    return null;
+  }
+}
+
+function polygonToOrigin2D(pnts: PointArray): {
+  points: PointArray,
+  translate: Array<number>,
+  quaternion: Array<number>,
+} {
+  // 1. Compute current plane information of the polygon
+  const pc = polyCentroid(pnts);
+  const pn = polyNormal(pnts);
+
+  // 2. Determining what the FACE direction is going to be.
+  // If the polygon is pointing DOWN, we're going to poin forward
+  const fwd = [0, -1, 0]; // WebGL DOWN
+  if (vec3.dot(pn, fwd) > 0.999) {
+    fwd[0] = 0; // WebGL FORWARD
+    fwd[1] = 0;
+    fwd[2] = 1;
+  }
+
+  // 3. Compute the orthogonal directions using the plane's
+  // normal as up & our best quess of forward ( DOWN or FORWARD )
+  const lft = vec3.cross([0, 0, 0], pn, fwd);
+  vec3.cross(fwd, lft, pn); // Realign forward with plane's normal & our left dir
+  vec3.normalize(fwd, fwd);
+  vec3.normalize(lft, lft);
+
+  // 4. Create rotation based on the plane's normal direction
+  const rot: Array<number> = quat_fromAxes(lft, pn, fwd);
+  quat.normalize(rot, rot);
+
+  // Invert rotation to align points to XZ Plane
+  const irot = quat.invert([], rot);
+
+  // 5. Transform points so they exist at origin & rotated with its face point up
+  const rtn: PointArray = [];
+
+  for (const p of pnts) {
+    const pp = vec3.sub([0, 0, 0], p, pc); // Localize to centroid
+    vec3.transformQuat(pp, pp, irot); // Apply inverse rotation
+
+    pp[1] = 0; // Y should be VERY near zero, snap it to zero
+    rtn.push(pp);
+  }
+
+  return {points: rtn, translate: pc, quaternion: rot};
+}

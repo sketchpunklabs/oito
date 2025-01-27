@@ -1,0 +1,280 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+//#region IMPORTS
+// import { Vec3, Quat }  from '@oito/oop';
+//#endregion
+
+//#region MAIN
+
+
+window.addEventListener( 'load', async _=>{
+
+  // claude exampe 1
+  // const result = build(() => {
+  //   const a = Float(1);
+  //   const s = span();
+  //   s.text = multiple(add(a, 2), 2);
+  // });
+
+  // console.log( result );
+
+  const result = build(() => {
+    const myFloat = Float(1);
+    const mySpan = span();
+    mySpan.text = multiple(add(myFloat, 2), 2);
+});
+
+console.log(JSON.stringify(result, null, 2));
+
+});
+//#endregion
+
+const nodeStack = [];
+
+class Node {
+    constructor(nodeType, props = {}) {
+        this.nodeType = nodeType;
+        Object.assign(this, props);
+
+        if (nodeStack.length > 0) {
+            const parent = nodeStack[nodeStack.length - 1];
+            if (!parent.children) parent.children = [];
+            parent.children = [...new Set([...parent.children, this])];
+        }
+    }
+
+    toVar(name) {
+        this.varName = name;
+        return this;
+    }
+
+    execute(fn) {
+        nodeStack.push(this);
+        const result = fn();
+        nodeStack.pop();
+        return result;
+    }
+
+    toJSON() {
+        const json = { nodeType: this.nodeType };
+        if (this.varName) json.varName = this.varName;
+        Object.entries(this).forEach(([key, value]) => {
+            if (!['nodeType', 'children', 'varName'].includes(key)) {
+                json[key] = value instanceof Node ? value.toJSON() : value;
+            }
+        });
+        if (this.children?.length > 0) {
+            json.children = this.children.map(child => child.toJSON());
+        }
+        return json;
+    }
+}
+
+export const add = (v0, v1) => {
+    const node = new Node('add', { v0, v1 });
+    nodeStack[0]?.children?.push(node);
+    return node;
+};
+
+export const multiple = (v0, v1) => {
+    const node = new Node('multiple', { v0, v1 });
+    nodeStack[0]?.children?.push(node);
+    return node;
+};
+
+export const Float = (value) => new Node('float', { value: value.toString() });
+export const span = () => {
+    const node = new Node('span');
+    return new Proxy(node, {
+        set(target, prop, value) {
+            target[prop] = value;
+            return true;
+        }
+    });
+};
+
+export function build(callback) {
+    nodeStack.length = 0;
+    const rootNode = new Node('root');
+    rootNode.execute(callback);
+    return rootNode.toJSON();
+}
+
+/*
+// Global execution stack and variable tracking
+const nodeStack = [];
+let lastCreatedNode = null;
+
+class Node {
+    constructor(nodeType, props = {}) {
+        this.nodeType = nodeType;
+        Object.assign(this, props);
+        
+        // Set this as the last created node
+        lastCreatedNode = this;
+        
+        // Only attach to parent if we have one on the stack
+        if (nodeStack.length > 0) {
+            const parent = nodeStack[nodeStack.length - 1];
+            if (!parent.children) parent.children = [];
+            parent.children.push(this);
+        }
+
+        // Return a proxy that can capture variable assignment
+        return new Proxy(this, {
+            get: (target, prop) => {
+                if (prop === 'toJSON') {
+                    return () => this.toJSON();
+                }
+                return target[prop];
+            }
+        });
+    }
+
+    execute(fn) {
+        nodeStack.push(this);
+        const result = fn();
+        nodeStack.pop();
+        return result;
+    }
+
+    toJSON() {
+        const json = { nodeType: this.nodeType };
+        
+        // Include the variable name if it exists
+        if (this.varName) {
+            json.varName = this.varName;
+        }
+        
+        // Add all other properties
+        for (const [key, value] of Object.entries(this)) {
+            if (!['nodeType', 'children', 'varName'].includes(key)) {
+                json[key] = value instanceof Node ? value.toJSON() : value;
+            }
+        }
+
+        // Include children if they exist
+        if (this.children?.length > 0) {
+            json.children = this.children.map(child => child.toJSON());
+        }
+
+        return json;
+    }
+}
+
+// Track variable declarations
+function trackAssignment(callback) {
+    const originalCode = callback.toString();
+    const constDeclarations = originalCode.match(/const\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*=/g) || [];
+    const letDeclarations = originalCode.match(/let\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*=/g) || [];
+    
+    const declarations = [...constDeclarations, ...letDeclarations];
+    declarations.forEach(decl => {
+        const varName = decl.replace(/(const|let)\s+/, '').replace('=', '').trim();
+        if (lastCreatedNode) {
+            lastCreatedNode.varName = varName;
+            lastCreatedNode = null;
+        }
+    });
+    
+    return callback();
+}
+
+// Global node functions
+export const add = (v0, v1) => new Node('add', { v0, v1 });
+export const multiple = (v0, v1) => new Node('multiple', { v0, v1 });
+export const Float = (value) => new Node('float', { value: value.toString() });
+export const span = () => {
+    const node = new Node('span');
+    return new Proxy(node, {
+        set(target, prop, value) {
+            target[prop] = value;
+            return true;
+        }
+    });
+};
+
+export function build(callback) {
+    // Clear the stack at the start of each build
+    nodeStack.length = 0;
+    lastCreatedNode = null;
+    
+    const rootNode = new Node('root');
+    
+    rootNode.execute(() => {
+        trackAssignment(callback);
+    });
+
+    // Return first child if it exists, otherwise return the root
+    const result = rootNode.toJSON();
+    return result; //.children?.[0] || result;
+}
+*/
+
+
+/*
+// Global execution stack
+const nodeStack = [];
+
+class Node {
+    constructor(nodeType, props = {}) {
+        this.nodeType = nodeType;
+        this.children = [];
+        Object.assign(this, props);
+
+        if (nodeStack.length > 0) {
+            const parent = nodeStack[nodeStack.length - 1];
+            parent.children.push(this);
+        }
+    }
+
+    execute(fn) {
+        nodeStack.push(this);
+        const result = fn();
+        nodeStack.pop();
+        return result;
+    }
+
+    toJSON() {
+        const json = { nodeType: this.nodeType };
+        Object.entries(this).forEach(([key, value]) => {
+            if (key !== 'nodeType' && key !== 'children') {
+                json[key] = value instanceof Node ? value.toJSON() : value;
+            }
+        });
+        if (this.children.length > 0) {
+            json.children = this.children.map(child => child.toJSON());
+        }
+        return json;
+    }
+}
+
+// Global node functions
+export const add = (v0, v1) => new Node('add', { v0, v1 });
+export const multiple = (v0, v1) => new Node('multiple', { v0, v1 });
+export const Float = (value) => new Node('float', { value: value.toString() });
+export const span = () => {
+    const node = new Node('span');
+    return new Proxy(node, {
+        set(target, prop, value) {
+            target[prop] = value;
+            return true;
+        }
+    });
+};
+
+export function build(callback) {
+    // Clear the stack at the start of each build
+    nodeStack.length = 0;
+    
+    const rootNode = new Node('root');
+    rootNode.execute(() => {
+        callback();
+    });
+
+    return rootNode; //rootNode.children[0]?.toJSON() || {};
+}
+*/
+
+</script></body></html>

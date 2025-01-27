@@ -117,6 +117,34 @@ export default class Polygon2D{
 
         return buf;
     }
+
+
+    /** Compute polygon's normal with Newell's method 
+     * THIS WORKS FOR 3D POINTS, NEEDS TO BE REWRITTEN FOR 2D
+    getNormal(pnts): Array<number> {
+        const n = [0, 0, 0];
+        let i, ii, a, b;
+    
+        for (i = 0; i < pnts.length; i++) {
+            ii = (i + 1) % pnts.length;
+            a = pnts[i];
+            b = pnts[ii];
+        
+            n[0] += (a[1] - b[1]) * (a[2] + b[2]);
+            n[1] += (a[2] - b[2]) * (a[0] + b[0]);
+            n[2] += (a[0] - b[0]) * (a[1] + b[1]);
+        }
+    
+        // Normalize
+        const mag = Math.sqrt(n[0] ** 2 + n[1] ** 2 + n[2] ** 2);
+        n[0] /= mag;
+        n[1] /= mag;
+        n[2] /= mag;
+    
+        return n;
+    }
+    */
+
     // #endregion
 
     // #region OPERATIONS

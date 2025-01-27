@@ -31,6 +31,11 @@ export default class Maths{
         const ang = deg % 360;
         return ang > 180 ? ang - 360 : ang < -180 ? ang + 360 : ang;
     }
+
+    static wrapPI( v: number ): number{
+        const vv = v % ( Math.PI * 2 );
+        return ( Math.abs(vv) <= Math.PI )? vv : vv + ( Math.PI * 2 ) * -Math.sign(vv);
+    }
     
     static snap( x: number, step: number ): number { return Math.floor( x / step ) * step; }
 

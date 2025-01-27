@@ -1,0 +1,180 @@
+https://aduprat.com/tools/sampling.html
+
+// Uniform Sampling 1D
+float entrypoint(float i, float N, float time) {
+	float dist = i / N;
+	return dist * 2.0 - 1.0;
+}
+
+// Random Sampling 1D
+float entrypoint(float i, float N, float time) {
+	float dist = hash1(i);
+	return dist * 2.0 - 1.0;
+}
+
+// Golden Ratio Sampling 1D
+float entrypoint(float i, float N, float time) {
+  	const float GoldenRatio = 1.61803398875;
+	
+	float dist = fract(GoldenRatio * i);
+	return dist * 2.0 - 1.0;
+}
+
+// Random Sampling 2D
+vec2 entrypoint(float i, float N, float time) {
+	vec2 rnd = hash2(i);
+	return rnd * 2.0 - 1.0;
+}
+
+// Halton 2,3 Sampling 2D
+// https://en.wikipedia.org/wiki/Halton_sequence
+float halton(int index, int base)
+{
+	float f = 1.0;
+	float r = 0.0;
+	while (index > 0)
+	{
+		f = f / float(base);
+		r += f * float(index % base);
+		index = index / base;
+	}
+	return r;
+}
+
+vec2 entrypoint(float i, float N, float time) {
+  	vec2 p = vec2( halton(int(i), 2), halton(int(i), 3) );
+	return p * 2.0 - 1.0;
+}
+
+// Hammersley Sampling 2D
+// https://en.wikipedia.org/wiki/Low-discrepancy_sequence
+
+vec2 hammersley(float i, float N)
+{   
+    uint b = uint(i);
+    b = (b << 16u) | (b >> 16u);
+    b = ((b & 0x55555555u) << 1u) | ((b & 0xAAAAAAAAu) >> 1u);
+    b = ((b & 0x33333333u) << 2u) | ((b & 0xCCCCCCCCu) >> 2u);
+    b = ((b & 0x0F0F0F0Fu) << 4u) | ((b & 0xF0F0F0F0u) >> 4u);
+    b = ((b & 0x00FF00FFu) << 8u) | ((b & 0xFF00FF00u) >> 8u);
+  
+    float radicalInverseVDC = float(b) * 2.3283064365386963e-10;
+  
+    return vec2(i / N, radicalInverseVDC);
+}
+
+vec2 entrypoint(float i, float N, float time) {
+	
+  	vec2 p = hammersley(i, N);
+	return p * 2.0 - 1.0;
+}
+
+// R Sampling 2D
+// https://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/#GeneralizingGoldenRatio
+
+vec2 R2(vec2 jitt, float i) {
+	const float r1 = 1.0 / 1.32471795724474602596;
+	const float r2 = r1 * r1;
+
+	return fract(jitt + vec2(r1,r2) * i);
+}
+
+vec2 entrypoint(float i, float N, float time) {
+	return R2(vec2(0.5), i) * 2.0 - 1.0;
+}
+
+// Random sampling on a disk with a uniform distribution
+vec2 entrypoint(float i, float N, float time) {
+	const float PI = 3.141592653589;
+  
+	vec2 rnd = hash2(i);
+	float angle = rnd.x * 2.0 * PI;
+	float radius = sqrt(rnd.y);
+
+	return vec2(cos(angle), sin(angle)) * radius;
+}
+
+// Disk Golden Angle 2D
+
+vec2 entrypoint(float i, float N, float time) {
+	const float GoldenAngle = 2.399963229728;  
+	float angle = GoldenAngle * i;
+	float radius = sqrt(i / N);
+	return vec2(cos(angle), sin(angle)) * radius;
+}
+
+// Random sampling on a sphere with a uniform distribution
+vec3 entrypoint(float i, float N, float time) {
+  	const float PI = 3.141592653589;
+  
+	vec2 rnd = hash2(i);
+	rnd.y = rnd.y*2.0 - 1.0;
+	float angle = 2.0 * PI * rnd.x;
+	float radius = sqrt(1.0 - rnd.y * rnd.y);
+
+	return vec3(cos(angle) * radius, rnd.y, sin(angle) * radius);
+}
+
+// Sphere Fibonacci Sampling
+// From https://github.com/RomkoSI/G3D/blob/f66b25b5c922f659f8fbd44d97d03479a4ba348e/data-files/shader/g3dmath.glsl#L591
+// Use sphericalFibonacci(i, N*2.0) to sample the hemisphere
+
+vec3 sphericalFibonacci(float i, float n) {
+  	const float PI = 3.141592653589;
+  	const float GoldenRatio = 1.61803398875;
+  
+    float phi = 2.0 * PI * fract(i*(GoldenRatio-1.));
+    float cosTheta = 1.0 - (2.0 * i + 1.0) * (1.0 / n);
+    float sinTheta = sqrt(clamp(1.0 - cosTheta * cosTheta, 0.0, 1.0));
+    return vec3( cos(phi) * sinTheta, cosTheta, sin(phi) * sinTheta);
+}
+
+vec3 entrypoint(float i, float N, float time) {
+	return sphericalFibonacci(i, N);
+}
+
+// Random sampling on a hemisphere with a uniform distribution
+
+vec3 entrypoint(float i, float N, float time) {
+  	const float PI = 3.141592653589;
+  
+	vec2 rnd = hash2(i);
+	float angle = 2.0 * PI * rnd.x;
+	float radius = sqrt(1.0 - rnd.y * rnd.y);
+
+	return vec3(cos(angle) * radius, rnd.y, sin(angle) * radius);
+}
+
+// Hemisphere Cosine Weighted Sampling
+
+vec3 entrypoint(float i, float N, float time) {
+  	const float PI = 3.141592653589;
+  
+	vec2 rnd = hash2(i);
+	float angle = 2.0 * PI * rnd.x;
+	float radius = sqrt(rnd.y);
+
+	return vec3(cos(angle) * radius, sqrt(1.0 - rnd.y), sin(angle) * radius);
+}
+
+// Box Random Sampling
+
+vec3 entrypoint(float i, float N, float time) {
+	vec3 p = hash3(i);
+	return p * 2.0 - 1.0;
+}
+
+// Box R3 Sampling
+// https://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/#GeneralizingGoldenRatio
+
+
+vec3 R3(vec3 jitt, float i) {
+	const float r1 = 1.0 / 1.22074408460575947536;
+  	const float r2 = r1 * r1;
+	const float r3 = r2 * r1;
+	return vec3( fract(jitt + vec3(r1,r2,r3) * i));
+}
+
+vec3 entrypoint(float i, float N, float time) {
+	return R3(vec3(0.5), i) * 2.0 - 1.0;
+}
