@@ -1,6 +1,13 @@
 // https://github.com/CesiumGS/cesium/blob/main/Source/Core/MortonOrder.js
 // https://github.com/thi-ng/umbrella/tree/develop/packages/morton
 // Voxel Grid System
+
+// factor : Octree subdivides into 8, quadtrees into 4
+function getLevelOffset( lvl, factor=8 ){ return ( factor**lvl - 1 ) / ( factor - 1 ); }
+function getLevelNodeCount( lvl, factor=8 ){ return factor**lvl; }
+function getNodeParentIndex( mortonIdx, factor=8 ){ return mortonIdx >> (( factor == 8 )? 3 : 2); }
+function getChildStartingIndex( mortonIdx, factor=8 ){ return mortonIdx << (( factor == 8 )? 3 : 2); }
+
 class Morton{
     static indexToXYZ( idx, out=[0,0,0] ){
         // out[ 0 ] = this.decode10( idx );
