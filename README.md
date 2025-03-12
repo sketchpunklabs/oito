@@ -21,7 +21,13 @@ npm install github:sketchpunklabs/oito --force --no-save
 git clone --depth=1 https://github.com/sketchpunklabs/oito
 cd oito
 npm install
+pnpm install
 npm run dev
+
+git clone --recurse-submodules --depth=1 --branch oito_next https://github.com/sketchpunklabs/oito.git oito_next
+cd oito_next
+pnpm install
+pnpm run dev
 ```
 
 

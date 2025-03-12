@@ -1,0 +1,135 @@
+// https://github.com/CesiumGS/cesium/blob/main/Source/Core/MortonOrder.js
+// https://github.com/thi-ng/umbrella/tree/develop/packages/morton
+// Voxel Grid System
+class Morton{
+    static indexToXYZ( idx, out=[0,0,0] ){
+        // out[ 0 ] = this.decode10( idx );
+        // out[ 1 ] = this.decode10( idx >>> 1 );
+        // out[ 2 ] = this.decode10( idx >>> 2 );
+
+        out[0] = this.removeTwoSpacing(idx);
+        out[1] = this.removeTwoSpacing(idx >> 1);
+        out[2] = this.removeTwoSpacing(idx >> 2);
+
+        return out;
+    }
+
+    static xyzToIndex( x, y, z ){
+        return (
+            this.insertTwoSpacing( x ) |
+            ( this.insertTwoSpacing( y ) << 1 ) |
+            ( this.insertTwoSpacing( z ) << 2 ) );
+    }
+
+    static parentIndex( chIdx, factor=8 ){
+        const bits = ( factor == 8 )? 3 : 2; // Octree 8, QuadTree 4
+        return chIdx >> bits;
+    }
+
+    static firstChildIndex( parentIdx, factor=8 ){
+        const bits = ( factor == 8 )? 3 : 2; // Octree 8, QuadTree 4
+        return parentIdx << bits;
+    }
+
+    static insertTwoSpacing(v) {
+        v = (v ^ (v << 16)) & 0x030000ff;
+        v = (v ^ (v << 8)) & 0x0300f00f;
+        v = (v ^ (v << 4)) & 0x030c30c3;
+        v = (v ^ (v << 2)) & 0x09249249;
+        return v;
+    }
+
+    static removeTwoSpacing(v){
+        v &= 0x09249249;
+        v = (v ^ (v >> 2)) & 0x030c30c3;
+        v = (v ^ (v >> 4)) & 0x0300f00f;
+        v = (v ^ (v >> 8)) & 0xff0000ff;
+        v = (v ^ (v >> 16)) & 0x000003ff;
+        return v;
+    }
+
+
+    static decode10( x ){
+        x &= 0x09249249;
+        x = (x | (x >> 2)) & 0x030c30c3;
+        x = (x | (x >> 4)) & 0x0300f00f;
+        x = (x | (x >> 8)) & 0xff0000ff;
+        x = (x | (x >> 16)) & 0x000003ff;
+        return x;
+    }
+
+    static encode10( x ){
+        x &= 0x000003ff; // ---- ---- ---- ---- ---- --98 7654 3210
+        x = (x | (x << 16)) & 0xff0000ff; // ---- --98 ---- ---- ---- ---- 7654 3210
+        x = (x | (x << 8)) & 0x0300f00f; // ---- --98 ---- ---- 7654 ---- ---- 3210
+        x = (x | (x << 4)) & 0x030c30c3; // ---- --98 ---- 76-- --54 ---- 32-- --10
+        x = (x | (x << 2)) & 0x09249249; // ---- 9--8 --7- -6-- 5--4 --3- -2-- 1--0
+        return x >>> 0;
+    }
+}
+
+
+// This one can convert negative coordindates into morton indicies
+
+/*
+If you have 3D coordinates:
+x=5 ( in binary: 101 )
+y=3 ( in binary: 011 )
+z=7 ( in binary: 111 )
+You interleave them like this:
+Morton code: x0 y0 z0 x1 y1 z1 x2 y2 z2
+Result: 1 0 1 0 1 1 1 1 1 (which is the Morton code of the point).
+In this case, the Morton code of (5, 3, 7) is 101011111 (binary), which you can convert to a scalar value.
+
+Morton Code can not handle negative coordinates, so cordinates will needs to be normalized in relation to the
+size of the 3D volume. From there is it then scaled by 1023 to create 10-Bit encoding of the MortonCode. 
+This helps keep the final morton code value within a 32 bit integer space.
+*/
+class MortonCode{
+    static VOLUME_SIZE      = 100;
+    static VOLUME_HALF_SIZE = 50;
+    static setVolumeSize( v ){
+        this.VOLUME_SIZE       = v;
+        this.VOLUME_HALF_SIZE  = v / 2;
+    }
+    
+    // Morton code bit manipulation by inserting zeros between bits
+    static expandBits( v ){
+        v = ( v * 0x00010001 ) & 0xFF0000FF; // Create graps between every second bit, filling it with a zero
+        v = ( v * 0x00000101 ) & 0x0F00F00F; // Placing zeros between each adjacent pair of bits.
+        v = ( v * 0x00000011 ) & 0xC30C30C3; // Add more zeros between the bits, further spreading them out across the 32-bit number.
+        v = ( v * 0x00000005 ) & 0x49249249; // Spread points out further
+        return v;
+    }
+
+    // Normalize coordinates to [0,1] range based on world size
+    static normCoord( v ){
+        return ( v + this.VOLUME_HALF_SIZE ) / this.VOLUME_SIZE;
+    };
+
+    // Calculate 3D Morton code
+    static fromPoint( p ){
+        let x = this.normCoord( p[0] );
+        let y = this.normCoord( p[1] );
+        let z = this.normCoord( p[2] );
+        
+        // Clamp to ensure they're in [0,1]
+        x = Math.min( Math.max( x, 0 ), 1 );
+        y = Math.min( Math.max( y, 0 ), 1 );
+        z = Math.min( Math.max( z, 0 ), 1 );
+        
+        // Scale to range [0, 1023] for 10-bit encoding
+        x = Math.min( Math.floor( x * 1023), 1023 );
+        y = Math.min( Math.floor( y * 1023), 1023 );
+        z = Math.min( Math.floor( z * 1023), 1023 );
+        
+        // Insert zeros between bits (3D Morton code)
+        // So that the values can easily be interleaved correctly
+        const xx = this.expandBits( x );
+        const yy = this.expandBits( y );
+        const zz = this.expandBits( z );
+
+        // Interleave the bits
+        return xx | ( yy << 1 ) | ( zz << 2 );
+    }
+}
