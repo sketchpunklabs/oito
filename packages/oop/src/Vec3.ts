@@ -351,6 +351,14 @@ export default class Vec3 extends Array< number >{
         return this;
     }
 
+    fromArc( radius: number, u: ConstVec3, v: ConstVec3, rad: number, offset: ConstVec3 = [0,0,0] ): this {
+        const s = Math.sin( rad );
+        const c = Math.cos( rad );
+        this[0] = offset[0] + radius * ( c * u[0] + s * v[0] );
+        this[1] = offset[1] + radius * ( c * u[1] + s * v[1] );
+        this[2] = offset[2] + radius * ( c * u[2] + s * v[2] );
+        return this;
+    }
     // #endregion
 
     // #region LOADING / CONVERSION

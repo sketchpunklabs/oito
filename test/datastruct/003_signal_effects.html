@@ -1,0 +1,303 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+//#region IMPORTS
+// import useThreeWebGL2, { useDarkScene, useVisualDebug } from '../_lib/useThreeWebGL2.js';
+//#endregion
+
+//#region MAIN
+// let App   = useDarkScene( useThreeWebGL2() );
+// let Debug = {};
+// let Ref   = {};
+
+// https://www.30secondsofcode.org/js/s/event-driven-vanilla-js-signals/
+// https://gomakethings.com/creating-a-vanilla-javascript-signal-with-proxies/
+
+window.addEventListener( 'load', async _=>{
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Setup
+    // App.sphericalLook( 0, 20, 6 );
+    // Debug = await useVisualDebug( App );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    // testSigEff();
+    // testComputed();
+    // testProxy();
+    testProxySignal();
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // App.renderLoop();
+    // App.createRenderLoop( onPreRender ).start();
+});
+
+//#endregion
+
+function testSigEff(){
+    const vstate = new VSignal( 42 ).on( e=>{ console.log('Signal',  e.detail ) });
+    vstate.value = 42;
+    vstate.value = 43;
+    vstate.value = v=>v+10;
+
+    const eff = new Effect( e=>{
+        console.log( 'Effect', vstate.value );
+    }, [vstate] );
+
+    vstate.value = 1;
+    eff.dispose()
+    vstate.value = 2;
+}
+
+function testComputed(){
+    const sig = new VSignal( 42 );
+    const eff = new Effect( ()=>{
+        console.log( 'Effect', sig.value );
+    }, [sig] );
+
+    const c = new VComputed( ()=>{
+        return sig.value * 2
+    }, [sig] );
+
+    const ceff = new Effect( ()=>{
+        console.log( 'Compute+Eff', c.value )
+    }, [c] );
+
+    sig.value = 43;
+}
+
+function testProxy(){
+    const sig = PSignal( {a:0, b:1, c:{ woot:'eep', test:'yeep' } });
+
+    console.log( sig );
+    console.log( sig.a );
+    console.log( sig.c );
+
+}
+
+function testProxySignal(){
+    const sig = new ProxySignal( { a:0, b:1, c:{ woot:'eep', test:'yeep', list:[1,2,3,4], obj:{ yo:'yo'} } } )
+
+    // console.log( sig.a );
+    // console.log( 'C', sig.c );
+    // console.log( 'C.LIST', sig.c.list );
+    // console.log( 'C.LIST', sig.c.obj );
+    // console.log( 'C.LIST', sig.c );
+    // console.log( 'C.LIST', sig.c.obj.yo );
+    // console.log( 'C.LIST', sig.c.obj.yo );
+    // console.log( 'C.LIST', sig.c.list );
+
+    // sig.c.obj.yo = 'yoy';
+    // sig.a = '2';
+
+    // TODO - Can change each proxy get its own eventHandler so 
+    // Effects can be tied to sub objects only
+    const eff = new Effect( e=>{
+        console.log( 'Effect', e.detail );
+    }, [sig], false );
+
+    const eff2 = new Effect( e=>{
+        console.log( 'Effect2', e.detail );
+    }, [sig.c.obj], false );
+
+    sig.a = 2;
+    sig.c.obj.yo = 'yoy';
+    // sig.c.obj = { x:1 };
+}
+
+class VSignal extends EventTarget{
+    // #region MAIN
+    #data = null;
+    constructor( v ){
+        super();
+        this.#data = v;
+    }
+
+    get value(){ return this.#data; }
+    set value(v){
+        const nv = ( typeof v === 'function' )? v( this.#data ) : v;
+        if( nv != this.#data ) this.emit( this.#data = nv );
+    }
+    // #endregion
+
+    // #region EVENT HANDLER
+    on( fn ){ this.addEventListener( 'signal', fn ); return this; }
+    off( fn ){ this.removeEventListener( 'signal', fn ); return this; }
+    once( fn ){ this.addEventListener( 'signal', fn, { once:true } ); return this; }
+    emit( data ){
+        this.dispatchEvent( new CustomEvent( 'signal', { detail:data, bubbles: false, cancelable:true, composed:false } ) );
+        return this;
+    }
+    // #endregion
+}
+
+class Effect{
+    #subs = new Set();
+    constructor( fn, deps=[], doNow=true ){
+        let prox = null
+        for( let d of deps ){
+            
+            if( ( prox = d[GET_EVENTS] ) ){
+                console.log( prox );
+                prox.on( 'signal', fn );
+                this.#subs.add( ()=>prox.off('signal', fn) ); // Remove from signal
+            }else{
+                d.on( fn );                         // Add to Signal
+                this.#subs.add( ()=>d.off(fn) );    // Remove from signal
+            }
+        }
+        
+        if( doNow ) fn( { detail:null } );
+    }
+
+    dispose(){ 
+        for( let s of this.#subs ) s(); 
+    }
+}
+
+/* This is a signal that depends on other signals.
+It will compute a new value when any dep signal triggers it.
+This can also be used a signal when tied to an Effect */
+class VComputed{
+    // #region MAIN
+    #sig;
+    #eff;
+    constructor( fn, deps = [] ){
+        this.#sig = new VSignal( fn() ); // Initial computed value
+        this.#eff = new Effect( ()=>{    // Recompute when signal
+            this.#sig.value = fn();
+        }, deps );
+    }
+
+    get value(){ return this.#sig.value; }
+    dispose(){ this.#eff.dispose(); }
+    // #endregion
+    
+    // #region EVENT HANDLER
+    on( fn ){ this.#sig.on( fn ); return this; }
+    off( fn ){ this.#sig.off( fn ); return this; }
+    once( fn ){ this.#sig.once( fn ); return this; }
+    // #endregion
+}
+
+
+function emit (name, detail = {}) {
+
+	// Create a new event
+	let event = new CustomEvent(`signal:${name}`, {
+		bubbles: true,
+		detail: detail
+	});
+
+	// Dispatch the event
+	return document.dispatchEvent(event);
+
+}
+function PSignal( data={}, name='' ){
+    function handler( data, name ){
+        return {
+            get( obj, prop ){
+                console.log( 'GET', obj, prop );
+                if( prop === '_isProxy' ) return true;
+
+                let nested = ['[object Object]', '[object Array]'];
+                let type = Object.prototype.toString.call( obj[prop] );
+                console.log( type );
+
+                if( nested.includes( type ) && !obj[prop]._isProxy ){
+                    obj[prop] = new Proxy( obj[prop], handler( data, name ) );
+                }
+
+                return obj[ prop ];
+                
+            },
+
+            set( obj, prop, valuie ){
+                if( obj[prop] === value ) return true;
+                obj[prop] = value;
+
+                emit(name, {prop, value, action: 'set'});
+                return true;
+            },
+
+            deleteProperty( obj, prop ){
+                delete obj[ prop ];
+                emit(name, {prop, value: obj[prop], action: 'delete'});
+                return true;
+            },
+        }
+    }
+
+    return new Proxy( data, handler(data, name ) )
+}
+
+
+// #region PROXY SIGNAL
+const IS_PROXY   = Symbol('isProxy');
+const GET_EVENTS = Symbol('getProxy');
+function isPlainObject( o ){
+    return o !== null && typeof o === 'object' && Object.getPrototypeOf( o ) === Object.prototype && !o[IS_PROXY];
+}
+
+class ProxyHandler{
+    #path   = '';
+    #events = null;
+    constructor( evts, path='' ){
+        this.#path      = path;
+        this.#events    = evts;
+    }
+
+    get( target, prop, receiver ){
+        // console.log( "GET", "target", target, "prop", prop, "rec", receiver, 'path:', this.#path + prop.toString() );
+
+        // if( prop === IS_PROXY ) return true;
+        switch( prop ){
+            case IS_PROXY   : return true; break;
+            case GET_EVENTS : return this.#events; break;
+        }
+
+        if( isPlainObject( target[prop] ) ){
+            target[prop] = new Proxy( target[prop], new ProxyHandler( this.#events, this.#path + prop + "." ) );
+            console.log( '- Object to proxy: ', this.#path + prop );
+        }
+
+        return Reflect.get( target, prop, receiver );
+    }
+
+    set( target, prop, value ){
+        if( Reflect.get( target, prop ) !== value ){
+            console.log( "SETTING", this.#path + prop );
+            Reflect.set( target, prop, value );
+
+            this.#events.emit( 'signal', { value:value, path: this.#path + prop } )
+        }
+
+        return true; 
+    }
+
+    deleteProperty( target, prop ){
+        delete obj[ prop ];
+        // emit(name, {prop, value: obj[prop], action: 'delete'});
+        return true;
+    }
+}
+
+class ProxyEvents{
+    events = new EventTarget();
+    on( evtName, fn ){ this.events.addEventListener( evtName, fn ); return this; }
+    off( evtName, fn ){ this.events.removeEventListener( evtName, fn ); return this; }
+    once( evtName, fn ){ this.events.addEventListener( evtName, fn, { once:true } ); return this; }
+    emit( evtName, data ){
+        // console.log( 'EMIT', evtName, data );
+        this.events.dispatchEvent( new CustomEvent( evtName, { detail:data, bubbles: false, cancelable:true, composed:false } ) );
+        return this;
+    }
+}
+
+class ProxySignal{
+    constructor( data={} ){
+        return new Proxy( data, new ProxyHandler( new ProxyEvents() ) );
+    }
+}
+// #endregion
+
+</script></body></html>

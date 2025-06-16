@@ -278,6 +278,16 @@ export default class Quat extends Array< number >{
         const xAxis = new Vec3().fromCross( up, zAxis ).norm();     // Right
         const yAxis = new Vec3().fromCross( zAxis, xAxis ).norm();  // Up
 
+        // Z & UP are parallel
+        // if( vLenSq( xAxis ) === 0 ){
+        //     if( Math.abs( up[2] ) === 1 ) zAxis[0] += 0.0001;  // shift x when Fwd or Bak
+        //     else                          zAxis[2] += 0.0001;  // shift z
+
+        //     vNorm( zAxis, zAxis );      // ReNormalize
+        //     vCross( up, zAxis, xAxis ); // Redo Left
+        //     vNorm( xAxis, xAxis );
+        // }
+
         //fromAxis - Mat3 to Quat
         const m00 = xAxis[0], m01 = xAxis[1], m02 = xAxis[2],
               m10 = yAxis[0], m11 = yAxis[1], m12 = yAxis[2],
@@ -326,6 +336,61 @@ export default class Quat extends Array< number >{
         this[ 3 ] = w;
         return this;
     }
+
+    // TODO - Seems to work well in proto repo, worth integrating it
+    // qLook( fwd, up=[0,1,0], out=[0,0,0,1] ){
+    //     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //     // Orthogonal axes to make a mat3x3
+    //     const zAxis	= fwd.slice();
+    //     const xAxis = vNorm( vCross( up, zAxis ) );     // Right
+
+    //     // Z & UP are parallel
+    //     if( vLenSq( xAxis ) === 0 ){
+    //         if( Math.abs( up[2] ) === 1 ) zAxis[0] += 0.0001;  // shift x when Fwd or Bak
+    //         else                          zAxis[2] += 0.0001;  // shift z
+
+    //         vNorm( zAxis, zAxis );      // ReNormalize
+    //         vCross( up, zAxis, xAxis ); // Redo Left
+    //         vNorm( xAxis, xAxis );
+    //     }
+        
+    //     const yAxis = vNorm( vCross( zAxis, xAxis ) );  // Up
+    //     const m     = [...xAxis, ...yAxis, ...zAxis];
+
+    //     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //     // Mat3 to Quat
+    //     // Algorithm in Ken Shoemake's article in 1987 SIGGRAPH course notes
+    //     // article "Quat Calculus and Fast Animation".
+    //     let fRoot;
+    //     const fTrace = m[0] + m[4] + m[8]; // Diagonal axis
+
+    //     if( fTrace > 0.0 ){
+    //         // |w| > 1/2, may as well choose w > 1/2
+    //         fRoot	= Math.sqrt( fTrace + 1.0 );  // 2w
+    //         out[3]	= 0.5 * fRoot;
+            
+    //         fRoot	= 0.5 / fRoot;  // 1/(4w)
+    //         out[0]	= (m[5]-m[7])*fRoot;
+    //         out[1]	= (m[6]-m[2])*fRoot;
+    //         out[2]	= (m[1]-m[3])*fRoot;
+    //     }else{
+    //         // |w| <= 1/2
+    //         let i = 0;
+    //         if ( m[4] > m[0] )		i = 1;
+    //         if ( m[8] > m[i*3+i] )	i = 2;
+            
+    //         const j = (i+1) % 3;
+    //         const k = (i+2) % 3;
+
+    //         fRoot	    = Math.sqrt( m[i*3+i] - m[j*3+j] - m[k*3+k] + 1.0);
+    //         out[ i ]	= 0.5 * fRoot;
+    //         fRoot	    = 0.5 / fRoot;
+    //         out[ 3 ]	= ( m[j*3+k] - m[k*3+j] ) * fRoot;
+    //         out[ j ]	= ( m[j*3+i] + m[i*3+j] ) * fRoot;
+    //         out[ k ]	= ( m[k*3+i] + m[i*3+k] ) * fRoot;
+    //     }
+    //     return out;
+    // }
 
     fromNBlend( a: ConstVec4, b: ConstVec4, t: number ): this{
         // https://physicsforgames.blogspot.com/2010/02/quaternions.html
