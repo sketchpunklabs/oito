@@ -10,6 +10,7 @@
   },
 
   "references": [
-    { "path": "../oop" }
+    { "path": "../oop" },
+    { "path": "../core" }
   ],
 }

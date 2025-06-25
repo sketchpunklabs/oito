@@ -1,0 +1,394 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+// #region IMPORTS
+import useThreeWebGL2, { THREE, useDarkScene, useVisualDebug } from '../_lib/useThreeWebGL2.js';
+import { BezierQuadSpline, SplineSampler, SplineMinSamples } from '../../packages/curves/src/index.ts';
+import { Vec3 } from '@oito/oop';
+
+import { GLTFLoader }    from 'three/examples/jsm/loaders/GLTFLoader.js';
+// #endregion
+
+// #region MAIN
+let App   = useDarkScene( useThreeWebGL2() );
+let Debug = {};
+let Ref   = {};
+
+// https://x.com/leondenise/status/965584020989005824
+// https://github.com/leon196/CurveModifier
+// https://github.com/zz85/threejs-path-flow
+// - https://github.com/zz85/threejs-path-flow/blob/gh-pages/flow.js#L80
+
+// https://github.com/sketchpunk/threejs_starter/blob/main/lib/meshes/InstanceRTSC.js
+// https://github.com/sketchpunk/three.js/blob/dev/src/objects/InstancedMesh.js
+// https://github.com/sketchpunklabs/ossos/blob/main/examples/threejs/_lib/BoneDirMesh.js
+// https://github.com/sketchpunklabs/threejs_proto/blob/main/code/webgl/misc/instanced_bones.html
+// https://github.com/sketchpunklabs/ossos/blob/main/examples/threejs/004_data_texture_with_inst.html
+// https://github.com/sketchpunklabs/ossos/blob/main/examples/threejs/004_data_texture.html
+// https://github.com/sketchpunk/oito/blob/main/test/armature/004_anim_texture_inst.html
+
+window.addEventListener( 'load', async _=>{
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Setup
+    App.sphericalLook( 0, 20, 6 );
+    Debug = await useVisualDebug( App );
+    globalThis.Debug = Debug;
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const spline = new BezierQuadSpline();
+
+    spline.isLoop = true;
+    spline.add( [-2, 0, 0] );
+    spline.add( [0, 1, 0] );
+    spline.add( [ 2, 0, 0] );
+
+    // spline.add( [ 3, -1, 1] );
+    // spline.add( [ 5, 0, 0] );
+
+    // spline.add( [ 5, 2, -1] );
+    // spline.add( [ 4, 3, 0] );
+
+    // spline.add( [ 2, 2, 0] ); 
+    // spline.add( [ 0, 3, 0] );
+
+    // spline.add( [ -3, 1, 0] ); // Extra Two Points for Closed Loop
+
+    // renderPoints( spline );
+    renderSpline( spline, 20 );
+    // renderSplineCurves( spline, 5, false );
+    // renderControls( spline )
+
+    // const samp = new SplineSampler().fromSpline( spline, 5 );
+    // renderSamplerPnts( samp )
+
+    const samp = new SplineMinSamples()
+    // samp.angleLimit = 176
+    // samp.fromSpline( spline );
+    // renderSamplerMinPnts( samp );
+    // console.log( samp.lenAry )
+    // console.log( samp.incAry )
+    // console.log( samp.timeAry );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // const tf    = await new GLTFLoader().loadAsync( '../_res/kenny_splines.glb' );
+    // const mesh  = tf.scene.children.find( i=>i.name === 'coaster_wood');
+    // const imesh = toInstanceMesh( mesh );
+
+    // const min   = mesh.geometry.boundingBox.min.toArray();
+    // const max   = mesh.geometry.boundingBox.max.toArray();
+    // console.log( min, max )
+    // App.scene.add( mesh );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    App.renderLoop();
+    // App.createRenderLoop( onPreRender ).start();
+});
+
+// function onPreRender( dt, et ){}
+// #endregion
+
+// #region LOREM
+function renderPoints( spline ){
+    for( let p of spline.points ){
+        Debug.pnt.add( p.pos, 0x007777, 8 );
+    }
+}
+
+function renderSpline( spline, samp=10 ){  
+    if( spline.isValid ){ console.log( 'Not Valid Spline'); return; }
+
+    const prev  = new Vec3();
+    const curr  = new Vec3();
+    const dxdy  = new Vec3();
+    const dxdy2 = new Vec3();
+    let t;
+
+    samp -= 1;
+
+    spline.at( 0, prev );
+    Debug.pnt.add( prev, 0x00ff00, 3 );
+    for( let i=1; i <= samp; i++ ){
+        t = i / samp;
+
+        spline.at( t, curr, dxdy, dxdy2 );
+
+        Debug.pnt.add( curr, 0x00ff00, 3 );
+        Debug.ln.add( prev, curr, 0x00ff00 );
+        // Debug.ln.add( curr, vec3.scaleThenAdd( vec3.norm( dxdy ), 0.5, curr ), 0xffffff );
+        // Debug.ln.add( curr, vec3.scaleThenAdd( vec3.norm( dxdy2 ), 0.5, curr ), 0x00ffff );
+        
+        prev.copy( curr );
+    }
+}
+
+function renderSplineCurves( spline, samp=10, incPnts=true ){
+    const prev  = new Vec3();
+    const curr  = new Vec3();
+    const dxdy  = new Vec3();
+    const dxdy2 = new Vec3();
+    let t;
+
+    samp -= 1;
+
+    for( let c=0; c < spline.curveCount; c++ ){
+        spline.atCurve( c, 0, prev );
+        if( incPnts ) Debug.pnt.add( prev, 0x00ff00, 3 );
+        
+        for( let i=1; i <= samp; i++ ){
+            t = i / samp;
+            spline.atCurve( c, t, curr, dxdy, dxdy2 );
+
+            if( incPnts ) Debug.pnt.add( curr, 0x00ff00, 3 );
+            Debug.ln.add( prev, curr, 0x00ff00 );
+            // Debug.ln.add( curr, vec3.scaleThenAdd( vec3.norm( dxdy ), 0.5, curr ), 0xffffff );
+            // Debug.ln.add( curr, vec3.scaleThenAdd( vec3.norm( dxdy2 ), 0.5, curr ), 0x00ffff );
+
+            prev.copy( curr );
+        }
+    }
+}
+
+function renderControls( spline ){
+    const pnt = spline.points;
+    let ii;
+    for( let i=1; i < pnt.length; i+=2 ){
+        ii = (i+1) % pnt.length;
+
+        Debug.ln.add( pnt[i-1].pos, pnt[i].pos, 0x909090 );
+        Debug.ln.add( pnt[ii].pos, pnt[i].pos, 0x909090 );
+    }
+}
+
+function renderSamplerPnts( samp ){
+    for( const i of samp.iterPoints() ){
+        Debug.pnt.add( i, 0xffff00, 3 )
+    }
+}
+
+function renderSamplerMinPnts( samp ){
+    for( const [i,v] of samp.points.entries() ){
+        Debug.pnt.add( v, 0xffff00, 3 )
+        if( i !== 0 ) Debug.ln.add( samp.points[i-1], v, 0x00ff00 );
+    }
+}
+//#endregion
+
+// #region HELPERS
+function dataTextureF32( w=2, h=1, compLen=3, buf=null ){
+    let fmt = null;
+    switch( compLen ){
+        case 3: fmt = THREE.RGBFormat;  break;
+        case 4: fmt = THREE.RGBAFormat; break;
+    }
+
+    if( !fmt ){ console.log( 'DataTexture format not set' ); return null; }
+
+    // texelFetch( tex, ivec2( x, y ), 0 )
+    const dt = new THREE.DataTexture( 
+        buf ?? new Float32Array( w * h  * compLen ), 
+        w, 
+        h, 
+        fmt, 
+        THREE.FloatType,
+        THREE.UVMapping,
+        THREE.ClampToEdgeWrapping, 
+        THREE.ClampToEdgeWrapping, 
+        THREE.NearestFilter, 
+        THREE.NearestFilter, 
+    );
+
+    dt.needsUpdate = true;
+    return dt;
+}
+
+
+function toInstanceMesh( mesh ){
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Convert from Buffer Geometry to Instanced Geometry
+    const iGeo = new THREE.InstancedBufferGeometry();
+    
+    iGeo.setIndex( mesh.geometry.index );
+    for( const [k,v] of Object.entries( mesh.geometry.attributes ) ){
+        switch( k ){ case 'color': case 'color_1': continue; }
+        iGeo.setAttribute( k, v );
+    }
+
+    iGeo.instanceCount     = 2;
+    iGeo._maxInstanceCount = Infinity; // ThreeJS is buggy, found in a forum setting this can fix Instancing not rendering sometimes
+    iGeo.computeBoundingBox();  // Won't run automatically, need it available
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Add out instance material
+    const mat = new SplineMeshMaterial()
+    const tex = mesh.material.map
+    mat.uniforms.map.value = mesh.material.map
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Keep mesh, just swop in new bits
+    mesh.geometry = iGeo;
+    mesh.material = mat
+}
+
+/*
+- Axis is origin to -Z
+- tDist = Abs( z ) / mexZ
+- DataTexture( 4, N )
+  - spline pos, store distance in W compoenet?
+  - xAxis, yAxis, zAxis or Quaternion
+  - Step @ inc, to tell how many samples away 
+
+- Main step should be max z length
+  - Then subdivide the main step by 5 or 10?
+
+- Steps
+  - pull spline pos & rot from texture
+
+  - startDist = glInstance * tileSize + offset
+  - endDist   = startDist + tileSize
+  - curDist   = startDist + abs(z)
+  - pix       = stepDist / curDist
+  - pixY      = floor( pix ) & nextPixY = pixY + 1
+  - pixT      = fract( pix )
+
+  - Total Length of spine can tell you how many instances are possible
+*/
+
+// #endregion
+
+
+class SplineMeshMaterial extends THREE.RawShaderMaterial{
+    constructor(){
+        super();
+
+        // #region SETUP
+        this.name               = 'SplineMeshMaterial';
+        this.glslVersion        = THREE.GLSL3;
+        // this.renderOrder        = 100;
+        this.depthTest          = true;
+        // this.side               = THREE.DoubleSide;
+        // this.transparent        = true;
+        // this.alphaToCoverage    = true;
+        // this.lights             = true;
+
+        this.uniforms           = {
+            map     : { value: null },
+            // color       : { value: new THREE.Color( '#202020' ) },
+            // colors       : { value:[
+            //     new THREE.Color( '#ff0000' ), // Right
+            //     new THREE.Color( '#00ff00' ), // Up
+            //     new THREE.Color( '#0000ff' ), // Front
+            //     new THREE.Color( '#b0b0b0' ), // Left
+            //     new THREE.Color( '#707070' ), // Bottom
+            //     new THREE.Color( '#909090' ), // Back
+            // ] },
+        };
+        // #endregion
+        
+        this.vertexShader = `
+        in vec4  position;
+        in vec3  normal;
+        in vec2  uv;
+        // in vec3 color;
+        // in vec3 color_1;
+
+        uniform mat4 modelMatrix;
+        uniform mat4 viewMatrix;
+        uniform mat4 projectionMatrix;
+
+        out vec3 fragLPos;
+        out vec3 fragWPos;
+        out vec3 fragWNorm;
+        out vec2 fragUV;
+        // out vec3 fragColor;
+
+        // #####################################################################
+
+        // Quat * Vec3 - Rotates Vec3
+        vec3 q_mul_vec( vec4 q, vec3 v ){
+            // return v + cross( 2.0 * q.xyz, cross( q.xyz, v) + q.w * v );  // Either Seems to Work, not sure which is the correct way to handle transformation
+            return v + 2.0 * cross( q.xyz, cross( q.xyz, v ) + q.w * v );
+        }
+
+        // #####################################################################
+
+        void main(){
+            // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            // INSTANCE TRANSFORM
+            // vec3 pos = position.xyz * ilen;     // Scale
+            // pos      = q_mul_vec( irot, pos );  // Rotate
+            // pos     += ipos;                    // Translate
+            
+            // // pos.y += float( gl_InstanceID ) * 1.0;
+
+            vec3 pos = position.xyz;
+
+            pos.y += float( gl_InstanceID ) * 0.5 ;
+
+            // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            // MAIN TRANSFORM
+            vec4 wPos   = modelMatrix * vec4( pos, 1.0 );
+            gl_Position = projectionMatrix * viewMatrix * wPos;
+            
+            // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            // OUT VALUES
+            fragWPos    = wPos.xyz;
+            fragLPos    = pos;
+
+            // vec3 N      = q_mul_vec( irot, normal );            // Apply instance Rotation
+            vec3 N      = normal;            // Apply instance Rotation
+            fragWNorm   = ( modelMatrix * vec4( N, 0.0 ) ).xyz; // Apply world rotation
+
+            // fragColor   = color;
+            fragUV      = uv;
+        }`;
+
+        this.fragmentShader = `precision mediump float;
+        in vec3 fragLPos;
+        in vec3 fragWPos;
+        in vec3 fragWNorm;
+        in vec2 fragUV;
+        // in vec3 fragColor;
+
+        out vec4 outColor;
+
+        uniform sampler2D map;
+        uniform highp vec3 cameraPosition;
+
+        // #####################################################################
+        
+        vec3 linearToneMapping( vec3 c, float exposure ){
+            vec3 ldr = c * exposure; // Apply exposure (scaling)
+
+            // Clamp the values to the [0.0, 1.0] range for LDR display.
+            // This is the "tone mapping" part of linear mapping: values outside
+            // this range are simply clipped.
+            return clamp( ldr, 0.0, 1.0 );
+        }
+
+        vec3 gammaCorrection( vec3 c ){
+            float gamma = 2.2;
+            return pow( c, vec3( 1.0 / gamma ) );
+        }
+
+        vec3 lightDir = normalize( vec3( 4.0, 5.0, 4.0 ) );
+        vec3 lambertLighting( vec3 c ){
+            vec3 N    = normalize( fragWNorm );        
+            float NdL = dot( N, lightDir );
+            NdL       = NdL * 0.5 + 0.5;                    // Remap -1:0 to 0:1
+            NdL       = clamp( 0.0, 1.0, NdL );             // Help remove any midtone shadows, don't notice it using planes
+            NdL       = NdL * NdL;                          // Valve's Half Lambert, just curves the light value
+            return  c * NdL;
+        }
+
+        // #####################################################################
+
+        void main(){
+            outColor     = vec4( 1.0, 0.0, 0.0, 1.0 );
+            outColor.rgb = texture( map, fragUV ).rgb; // fragColor;
+            // outColor.rgb = lambertLighting( outColor.rgb );
+            outColor.rgb = gammaCorrection( outColor.rgb );
+        }`;
+    }
+}
+
+</script></body></html>

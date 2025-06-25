@@ -23,9 +23,11 @@ export default ( { command, mode } ) => {
                         dir     : '../../dist',
                         compact : true,
                     },
-
+                    external: [ './oop.js', './core.js' ],
+                    makeAbsoluteExternalsRelative: false,
                     plugins: [
-                        cleanup( { comments: 'none', extensions:[ 'js', 'ts' ] } )
+                        cleanup( { comments: 'none', extensions:[ 'js', 'ts' ] } ),
+                        replace( { values:{ '@oito/oop':'./oop.js', '@oito/core':'./core.js' }, delimiters: ['',''], preventAssignment:true  }  ),
                     ]
                 }
             },
