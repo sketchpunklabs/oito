@@ -770,6 +770,28 @@ export default class Vec3 extends Array< number >{
         return out;
     }
 
+    static orthogonal( fwd: ConstVec3, up: ConstVec3=[0,1,0] ):Array<TVec3>{
+        const zAxis	= new Vec3( fwd );  // Clone Forward, may need to alter it
+        const xAxis = new Vec3()        // Right
+            .fromCross( up, zAxis )
+            .norm(); 
+
+        // FWD & UP are parallel
+        if( Vec3.lenSqr( xAxis ) === 0 ){
+            if( Math.abs( up[2] ) === 1 ) zAxis[0] += 0.0001;  // shift x when Fwd or Bak
+            else                          zAxis[2] += 0.0001;  // shift z
+
+            zAxis.norm();                           // ReNormalize
+            xAxis.fromCross( up, zAxis ).norm();    // Redo Right
+        }
+
+        const yAxis = new Vec3() // Realign Up
+            .fromCross( zAxis, xAxis )
+            .norm();
+
+        return [ xAxis, yAxis, zAxis ];
+    }
+
     static fromQuat( q: ConstVec4, v: ConstVec3=[0,0,1] ): Vec3{ return new Vec3( v ).transformQuat( q ); }
 
     static iterBuf( buf: Array<number> | Float32Array ) : { [Symbol.iterator]() : { next:()=>{ value:Vec3, done:boolean } } } {
