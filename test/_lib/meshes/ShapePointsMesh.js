@@ -21,6 +21,7 @@ class ShapePointsMesh extends THREE.Points{
             newShapePointsMeshMaterial() //new THREE.PointsMaterial( { color: 0xffffff, size:8, sizeAttenuation:false } )
         );
 
+        this.name = 'ShapePointsMesh';
         this.geometry.setDrawRange( 0, 0 );
         this.onBeforeRender = ()=>{ if( this._dirty ) this._updateGeometry(); }
     }

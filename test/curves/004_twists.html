@@ -1,0 +1,441 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title></title></head>
+<style>canvas{ display:block; } body, html { padding:0px; margin:0px; width:100%; height:100%; }</style>
+<body><script type="module">
+// #region IMPORTS
+import useThreeWebGL2, { useDarkScene, useVisualDebug } from '../_lib/useThreeWebGL2.js';
+import ShapePointsMesh          from '../_lib/meshes/ShapePointsMesh.js';
+import DynLineMesh              from '../_lib/meshes/DynLineMesh.js';
+import useTransformControl      from '../_lib/useTransformControl.js';
+import ScreenPicker, { Tasker } from '../_lib/misc/ScreenPicker.js';
+import facedCube                from '../_lib/meshes/facedCube.js';
+
+import { Vec3, Quat } from '@oito/oop';
+import { NurbsSpline } from '../../packages/curves/src/index.ts';
+
+// https://tweakpane.github.io/docs/
+// https://tweakpane.github.io/docs/plugins/#essentials
+import { Pane }                 from '../_lib/thirdparty/tweakpane-4.0.4.min.js';
+import * as TweakpaneEssentials from '../_lib/thirdparty/tweakpane-plugin-essentials-0.2.1.min.js';
+// #endregion
+
+// #region MAIN
+let App   = useDarkScene( useThreeWebGL2() );
+let Debug = {};
+let Ref   = {
+    selPnt  : -1,
+    gizmo   : useTransformControl( App ).useAxes().hide(),
+    tasks   : new Tasker(),
+    picker  : new ScreenPicker( App ),
+
+    twistA  : 0,
+    twistB  : 0,
+};
+
+window.addEventListener( 'load', async _=>{
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Setup
+    App.sphericalLook( 135, 40, 4, [0,1.2,0] );
+    Debug       = await useVisualDebug( App );
+    Ref.pnt     = new ShapePointsMesh();
+    Ref.ln      = new DynLineMesh();
+
+    Ref.pnt.renderOrder = 91;
+    Ref.ln.renderOrder  = 90;
+
+    App.scene.add( Ref.pnt, Ref.ln );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Ref.spline = new NurbsSpline();
+    Ref.spline.add( [0, 0.2, 0] );
+    Ref.spline.add( [0, 1.0, 0] );
+    Ref.spline.add( [0, 1.8, 0] );
+    Ref.spline.generateKnots();
+
+    recompute();
+
+    // renderSplinePoints( Ref.spline );
+
+    // // renderSpline( Ref.spline );
+    
+    // frames = linearSamplesRMF( Ref.spline );
+    // applyLinearTwist( frames, Ref.twistA, Ref.twistB );
+
+    // console.log( frames );
+    // renderRMF( frames );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // App.renderLoop();
+    App.createRenderLoop( null, onPostRender ).start(); 
+
+    buildUI();
+});
+
+function onPreRender( dt, et ){}
+function onPostRender( dt, et ){
+    Ref.tasks.run();
+}
+
+function recompute(){
+    frames = linearSamplesRMF( Ref.spline );
+    
+    // applyLinearTwist( frames, Ref.twistA, Ref.twistB );
+    applySmoothTwist( frames, Ref.twistA, Ref.twistB );
+
+    renderSplinePoints( Ref.spline );
+    // renderRMF( frames );
+    renderCubes( frames );
+}
+
+Ref.gizmo.onMove = p=>{
+    if( Ref.selPnt === -1 ) return;
+    // Debug.pnt.setPosAt( Ref.selPnt, p );
+    updateSplinePos( p );
+};
+
+window.addEventListener( 'pointerdown', e=>{
+    if( e.button === 2 ){
+        Ref.selPnt = -1;
+        Ref.gizmo.hide();
+        return;
+    }
+
+    if( Ref.gizmo.o.dragging ) return;
+    Ref.tasks.push( Ref.picker.pixelTaskFromEvent(e, onPicker, false ) );
+});
+
+function onPicker( o ){
+    console.log( 'Pick', o );
+    if( o.id === -1 || o.type !== "shapePoint" ) return;
+    if( o.obj !== Ref.pnt ) return;
+    Ref.gizmo.show( o.hit );
+    Ref.selPnt = o.idx;
+}
+
+function updateSplinePos( pos ){
+    Ref.spline.points[ Ref.selPnt ].pos.copy( pos );
+    recompute();
+}
+
+async function buildUI(){
+    const container = document.createElement( 'div' );
+    container.className         = 'ppane';
+    container.style.position    = 'fixed';
+    container.style.top         = '10px';
+    container.style.left        = '50%';
+    // container.style.width       = '400px';
+    container.style.height      = 'fit-content';
+    container.style.transform   = 'translateX(-50%)';
+    document.body.appendChild( container );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const p = new Pane( { container } );
+    p.on( 'change', e=>{  recompute(); });
+
+    const f = p.addFolder({ title: 'Twisting', expanded: true });
+    f.addBinding( Ref, 'twistA', { min: -180, max: 180, step: 1, label: 'Start' } );
+    f.addBinding( Ref, 'twistB', { min: -180, max: 180, step: 1, label: 'End' } );
+    f.addButton({ title: 'Reset' }).on( 'click', ()=>{
+        Ref.twistA = 0;
+        Ref.twistB = 0;
+        f.refresh();
+    });
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Ref.pane = p;
+}
+// #endregion
+
+// #region VISUALZING
+
+function renderSpline( spline, incTan=true ){
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Draw main points
+    const colors = [0x00ff00, 0xffff00, 0xff0000 ];
+    for( let [i,p] of spline.points.entries() ){
+        Debug.pnt.add( p.pos, colors[i], 3 );
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const eIdx = spline.points.length - 1;
+    const prev = new Vec3();
+    const curr = new Vec3();
+    const dxdy = new Vec3();
+    const pn   = new Vec3();
+    const norm = new Vec3();
+    const v    = new Vec3();
+    const samp = 9;
+    let t;
+    let prevAxes;
+    let axes;
+
+    for( let i=0; i <= samp; i++ ){
+        t = i / samp;
+
+        spline.at( t, curr, dxdy );
+        // Debug.pnt.add( curr, 0x909090, 1 );
+        // console.log( curr, dxdy );
+        
+
+        if( i !== 0 ) Debug.ln.add( prev, curr, 0x707070 );
+
+        // if( incTan ) Debug.ln.add( curr, dxdy.scale(0.3).add(curr), 0xffffff );
+
+        if( i === 0 ){
+            stableNormal( dxdy, [0,1,0], norm );
+            axes = Vec3.orthogonal( dxdy, norm );
+        }else{
+            axes = computeRMF( dxdy, prevAxes );
+        }
+        
+        // Debug.ln.add( curr, v.fromScaleThenAdd( 0.2, norm, curr ), 0xff0000 );
+        Debug.ln.add( curr, v.fromScaleThenAdd( 0.2, axes[0], curr ), 0xff0000 );
+        Debug.ln.add( curr, v.fromScaleThenAdd( 0.2, axes[1], curr ), 0x00ff00 );
+        Debug.ln.add( curr, v.fromScaleThenAdd( 0.2, axes[2], curr ), 0x0000ff );
+
+        prevAxes = axes;
+        prev.copy( curr );
+    }
+}
+
+function renderSplinePoints( spline ){
+    Ref.ln.reset();
+    Ref.pnt.reset();
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const colors = [0x00ffff, 0xffff00, 0xff00ff ];
+    for( let [i,p] of spline.points.entries() ){
+        Ref.pnt.add( p.pos, colors[i], 3 );
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const pos  = new Vec3();
+    const prev = new Vec3();
+    const samp = 9;
+    let t = 0;
+
+    spline.at( t, prev );
+    for( let i=1; i <= samp; i++ ){
+        t = i / samp;
+        spline.at( t, pos );
+        Ref.ln.add( prev, pos, 0x909090 );
+        prev.copy( pos );
+    }
+}
+
+function renderRMF( frames ){
+    Debug.reset();
+
+    const v = new Vec3();
+    const s = 0.15;
+    for( const f of frames ){
+        Debug.ln.add( f.pos, v.fromScaleThenAdd( s, f.axes[0], f.pos ), 0xff0000 );
+        Debug.ln.add( f.pos, v.fromScaleThenAdd( s, f.axes[1], f.pos ), 0x00ff00 );
+        Debug.ln.add( f.pos, v.fromScaleThenAdd( s, f.axes[2], f.pos ), 0x0000ff );
+    }
+}
+
+function renderCubes( frames ){
+    Debug.reset();
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    if( !Ref.cubes ){
+        Ref.cubes = [];
+        const c = facedCube( null, 0.1 );
+        for( let i=0; i < frames.length; i++ ){
+            Ref.cubes.push( c.clone() );
+        }
+        App.scene.add( ...Ref.cubes );
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const q = new Quat();
+    for( const [i,f] of frames.entries() ){
+        q.fromAxes( f.axes[0], f.axes[1], f.axes[2] );
+
+        Ref.cubes[i].position.fromArray( f.pos );
+        Ref.cubes[i].quaternion.fromArray( q );
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const v = new Vec3();
+    const s = 0.4;
+    for( const f of frames ){
+        // Debug.ln.add( f.pos, v.fromScaleThenAdd( s, f.axes[0], f.pos ), 0xff0000 );
+        Debug.ln.add( f.pos, v.fromScaleThenAdd( s, f.axes[1], f.pos ), 0x00ff00 );
+        // Debug.ln.add( f.pos, v.fromScaleThenAdd( s, f.axes[2], f.pos ), 0x0000ff );
+    }
+}
+
+// #endregion
+
+
+function stableNormal( tan, up=[0,1,0], out=new Vec3() ){
+    // Project reference vector onto plane perpendicular to tangent
+    // proj = referenceUp - tangent * tangent.dot( referenceUp )
+    out.fromScale( tan, Vec3.dot( tan, up ) );
+    out.fromSub( up, out );
+
+    // If tangent is parallel to reference, use different reference
+    if( out.len < 0.001 ){
+        // const alt = ( Math.abs( up[0] ) < 0.9 )? [1,0,0] : [0,0,1];
+        const alt = ( Math.abs( up[1] ) > 0.9 )? [0,0,-1] : [1,0,0];
+        out.fromScale( tan, Vec3.dot( tan, alt ) );
+        out.fromSub( alt, out );
+    }
+
+    return out.norm();
+}
+
+// Rotation Minimizing Frame
+function computeRMF( tan, prev ){
+    const T1 = prev[2];     // tangent  :: Z
+    const R1 = prev[1];     // normal   :: Y
+    const S1 = prev[0];     // binormal :: X
+    const T2 = tan;         // Current Tangent
+    const v  = new Vec3();  // Temp var
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Parallel transport the frame
+    const v1 = new Vec3().fromAdd( T1, T2 );
+    const c1 = v1.lenSqr;
+    
+    let riL;
+    let tiL;
+    if( c1 > 0.0001 ){
+        // riL = R1 - (2.0f / c1) * v1.dot(R1) * v1;
+        v.fromScale( v1, ( 2 / c1 ) * Vec3.dot( v1, R1 ) );
+        riL = new Vec3().fromSub( R1, v );
+
+        // tiL = T1 - (2.0f / c1) * v1.dot(T1) * v1;
+        v.fromScale( v1, ( 2 / c1 ) * Vec3.dot( v1, T1 ) );
+        tiL = new Vec3().fromSub( T1, v );
+    } else {
+        riL = new Vec3( R1 );
+        tiL = new Vec3( T1 );
+    }
+    
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Reflection to align with new tangent ( Fix Up )
+    const v2    = new Vec3().fromAdd( tiL, T2 );
+    const c2    = v2.lenSqr;
+    const axes  = [ null, null, new Vec3( T2 ) ];
+    
+    if( c2 > 0.0001 ){
+        // normal = riL - (2.0f / c2) * v2.dot(riL) * v2;
+        v.fromScale( v2, ( 2 / c2 ) * Vec3.dot( v2, riL ) );
+        axes[1] = new Vec3().fromSub( riL, v ).norm();
+    }else{
+        axes[1] = riL.norm();
+    }
+    
+    axes[0] = new Vec3().fromCross( axes[1], axes[2] ).norm();
+    return axes;
+}
+
+// Rotation Minimizing Frames
+function linearSamplesRMF( spline, sampleCnt=12, initDir=null ){
+    const pos    = new Vec3();
+    const tan    = new Vec3();
+    const norm   = new Vec3( initDir );
+    const end    = sampleCnt - 1;
+    const frames = [];
+
+    const v = new Vec3(); // TODO-Remove
+    
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Handle Initial Frame Sample
+    let axes;
+    let prevAxes;
+    spline.at( 0, pos, tan );
+    
+    if( !initDir ) stableNormal( tan, [0,1,0], norm );
+    prevAxes = Vec3.orthogonal( tan, norm );
+
+    frames.push( { t:0, pos: pos.clone(), axes:prevAxes } );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Transport the axes across the curve
+    let t = 0;
+    for( let i=1; i <= end; i++ ){
+        t = i / end;
+        spline.at( t, pos, tan );
+        axes        = computeRMF( tan, prevAxes );
+        prevAxes    = axes;
+        frames.push( { t:t, pos: pos.clone(), axes:axes } );
+
+        // Debug.pnt.add( pos, 0x00ff00, 3 );;
+        // Debug.ln.add( pos, v.fromScaleThenAdd( 0.2, axes[0], pos ), 0xff0000 );
+        // Debug.ln.add( pos, v.fromScaleThenAdd( 0.2, axes[1], pos ), 0x00ff00 );
+        // Debug.ln.add( pos, v.fromScaleThenAdd( 0.2, axes[2], pos ), 0x0000ff );
+    }
+
+    return frames;
+}
+
+
+function applyLinearTwist( frames, aAng, bAng ){
+    const aRad = aAng * Math.PI / 180;
+    const bRad = bAng * Math.PI / 180;
+    const va   = new Vec3();
+    const vb   = new Vec3();
+
+    let c;
+    let s;
+    let rad;
+
+    for( const f of frames ){
+        rad = aRad * (1-f.t) + bRad * f.t;
+        c   = Math.cos( rad );
+        s   = Math.sin( rad );
+
+        // normal * cos(rad) + binormal * sin(rad)
+        va.fromScale( f.axes[1], c );
+        vb.fromScale( f.axes[0], s );
+        f.axes[1].fromAdd( va, vb ).norm();
+        
+        // binormal = cross( normal, tangent )
+        f.axes[0].fromCross( f.axes[1], f.axes[2] ).norm();
+    }
+}
+
+
+function smoothStep(t){ return t * t * ( 3 - 2 * t ); }
+function smootherStep(t){ return t * t * t * ( t * ( t * 6 - 15 ) + 10 ); }
+function applySmoothTwist( frames, aAng, bAng ){
+    const aRad = aAng * Math.PI / 180;
+    const bRad = bAng * Math.PI / 180;
+    const va   = new Vec3();
+    const vb   = new Vec3();
+    const cnt  = frames.length - 1;
+    let t;
+    let c;
+    let s;
+    let rad;
+
+    for( const [i,f] of frames.entries() ){
+        t   = smoothStep( i / cnt );
+        // t   = smootherStep( i / cnt );
+        rad = aRad * (1-t) + bRad * t;
+        c   = Math.cos( rad );
+        s   = Math.sin( rad );
+
+        // normal * cos(rad) + binormal * sin(rad)
+        va.fromScale( f.axes[1], c );
+        vb.fromScale( f.axes[0], s );
+        f.axes[1].fromAdd( va, vb ).norm();
+        
+        // binormal = cross( normal, tangent )
+        f.axes[0].fromCross( f.axes[1], f.axes[2] ).norm();
+    }
+}
+
+</script><style>
+/* Main Panel */
+.ppane .tp-rotv { width: 300px; }
+
+/* Label  */
+.ppane .tp-lblv_l{ max-width:30px; }
+
+/* Input */
+.ppane .tp-lblv_v { flex:1; flex-grow:1; }
+.ppane .tp-sldtxtv_t { max-width: 40px; }
+</style></body></html>

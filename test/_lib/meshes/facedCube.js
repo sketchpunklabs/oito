@@ -3,12 +3,19 @@ import { BoxGeometry, MeshBasicMaterial, Mesh } from 'three';
 export default function facedCube( pos=null, scl=null ){
     const geo = new BoxGeometry( 1, 1, 1 );
     const mat = [
-        new MeshBasicMaterial( { color: 0x00ff00 } ), // Left
-        new MeshBasicMaterial( { color: 0x777777 } ), // Right
-        new MeshBasicMaterial( { color: 0x0000ff } ), // Top
-        new MeshBasicMaterial( { color: 0x222222 } ), // Bottom
-        new MeshBasicMaterial( { color: 0xff0000 } ), // Forward
-        new MeshBasicMaterial( { color: 0xffffff } ), // Back
+        // new MeshBasicMaterial( { color: 0x00ff00 } ), // Left
+        // new MeshBasicMaterial( { color: 0x777777 } ), // Right
+        // new MeshBasicMaterial( { color: 0x0000ff } ), // Top
+        // new MeshBasicMaterial( { color: 0x222222 } ), // Bottom
+        // new MeshBasicMaterial( { color: 0xff0000 } ), // Forward
+        // new MeshBasicMaterial( { color: 0xffffff } ), // Back
+
+        new MeshBasicMaterial( { color: 0xE61A1A } ), // Left
+        new MeshBasicMaterial( { color: 0x260D0D } ), // Right
+        new MeshBasicMaterial( { color: 0x1AE61A } ), // Top
+        new MeshBasicMaterial( { color: 0x0D260D } ), // Bottom
+        new MeshBasicMaterial( { color: 0x1A1AFF } ), // Forward
+        new MeshBasicMaterial( { color: 0x0D0D26 } ), // Back
     ];
 
     const mesh = new Mesh( geo, mat );

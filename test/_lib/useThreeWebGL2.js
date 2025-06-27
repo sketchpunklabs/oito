@@ -47,6 +47,9 @@ export async function useVisualDebug( tjs ){
     tjs.scene.add( ( o.ln  = new ary[ 0 ].default ) );
     tjs.scene.add( ( o.pnt = new ary[ 1 ].default ) );
 
+    o.ln.renderOrder  = 100;
+    o.pnt.renderOrder = 101;
+
     o.reset = ()=>{
         o.ln.reset();
         o.pnt.reset();
